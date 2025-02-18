@@ -8,9 +8,9 @@ from LoginScreen import LoginScreen
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
 import os
- 
-SERVER_IP = "maglev.proxy.rlwy.net"
-SERVER_PORT = 44200
+
+SERVER_IP = '127.0.0.1'  # Lokaler Server
+SERVER_PORT = 12345      # Standard Port
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))

@@ -3,8 +3,8 @@ import socket
 import json
 import sys
 
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 12345
+SERVER_IP = "maglev.proxy.rlwy.net"
+SERVER_PORT = 44200
 
 music_on = True
 
