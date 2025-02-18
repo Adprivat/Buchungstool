@@ -4,9 +4,12 @@ import socket
 import json
 import sys
 from buttons import ImageButton  # Importiere die Button-Klasse aus buttons.py
+import os
 
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 12345
+SERVER_IP = "maglev.proxy.rlwy.net"
+SERVER_PORT = 44200
+
+
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))

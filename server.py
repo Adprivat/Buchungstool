@@ -4,9 +4,9 @@ import threading
 import json
 import random
 import mysql.connector
-import gladiator_types  # Import des separaten Moduls mit Gladiator-Daten
+import gladiator_types  # Enthält die Definitionen der Gladiator-Typen
 
-# MySQL-Datenbankkonfiguration (Railway-Daten)
+# MySQL-Datenbankkonfiguration (Beispiel: Railway)
 db_config = {
     'host': 'switchback.proxy.rlwy.net',
     'port': 12594,
@@ -20,7 +20,7 @@ db = mysql.connector.connect(**db_config)
 cursor = db.cursor()
 
 def setup_database():
-    # Tabelle für Nutzer
+    # Tabelle für Nutzer erstellen
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -29,7 +29,7 @@ def setup_database():
             currency INT DEFAULT 1000
         )
     ''')
-    # Erweiterte Tabelle für Gladiatoren – benutze "gladiator_type" statt "type"
+    # Tabelle für Gladiatoren erstellen – verwende "gladiator_type" statt "type"
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS gladiators (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -47,13 +47,13 @@ def setup_database():
         )
     ''')
     db.commit()
-    # Fehlende Spalten ergänzen, falls sich die Struktur geändert hat
+    # Falls sich die Tabellendefinition geändert hat, werden fehlende Spalten ergänzt
     ensure_gladiator_table_columns()
 
 def ensure_gladiator_table_columns():
     """
     Prüft, ob alle erwarteten Spalten in der Tabelle 'gladiators' vorhanden sind.
-    Falls nicht, werden sie per ALTER TABLE hinzugefügt.
+    Falls nicht, werden sie mittels ALTER TABLE hinzugefügt.
     """
     expected_columns = {
         "gladiator_type": "VARCHAR(50)",
@@ -75,6 +75,7 @@ def ensure_gladiator_table_columns():
 
 setup_database()
 
+# Liste wartender Spieler für den Kampf
 waiting_players = []
 
 def handle_client(client_socket):
@@ -133,7 +134,7 @@ def login_user(request):
     else:
         return {'status': 'error', 'message': 'Ungültige Anmeldedaten'}
 
-# Basiswerte für alle Gladiatoren
+# Basiswerte für alle Gladiatoren (Standardwerte, die dann modifiziert werden)
 BASE_STATS = {
     "lp": 100,
     "Agilität": 10,
@@ -147,7 +148,7 @@ BASE_STATS = {
 def recruit_gladiator(request):
     user_id = request.get('user_id')
     name = request.get('name')
-    chosen_type = request.get('type')  # z. B. "Retiarius"
+    chosen_type = request.get('type')  # Beispiel: "Retiarius"
     
     if chosen_type not in gladiator_types.gladiator_types:
         return {'status': 'error', 'message': 'Ungültiger Gladiator-Typ'}
@@ -261,7 +262,8 @@ def simulate_fight(player1, player2):
 
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('0.0.0.0', 12345))
+    # Der Server lauscht auf allen Schnittstellen; Railway leitet dann den Traffic über den Proxy-Port weiter
+    server.bind(('0.0.0.0', 49461))
     server.listen(5)
     print("Server gestartet und wartet auf Verbindungen...")
     try:
