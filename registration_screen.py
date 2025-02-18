@@ -1,8 +1,23 @@
 import pygame
 import sys
+import os
 from utils import toggle_music, send_request, draw_button, music_on
 
+class RegistrationScreen:
+    def __init__(self, screen, font):
+        self.screen = screen
+        self.font = font
+        # Lade die Bilder und skaliere sie auf Fenstergröße
+        self.frames = []
+        for i in range(1, 29):
+            frame = pygame.image.load(os.path.join('assets/LoginBackground', f'ezgif-frame-{i:03d}.png')).convert()
+            self.frames.append(pygame.transform.scale(frame, (800, 600)))
+        self.current_frame = 0
+        self.frame_delay = 100  # milliseconds
+        self.last_update = pygame.time.get_ticks()
+
 def show_registration_screen(screen, font):
+    registration = RegistrationScreen(screen, font)
     username = ""
     password = ""
     active_field = "username"
@@ -16,7 +31,12 @@ def show_registration_screen(screen, font):
     music_button_rect = pygame.Rect(690,10,100,30)
     
     while True:
-        screen.fill((30,30,30))
+        now = pygame.time.get_ticks()
+        if now - registration.last_update > registration.frame_delay:
+            registration.current_frame = (registration.current_frame + 1) % len(registration.frames)
+            registration.last_update = now
+        
+        screen.blit(registration.frames[registration.current_frame], (0, 0))
         title = font.render("Registrierung", True, (255,255,255))
         screen.blit(title, (320,100))
         pygame.draw.rect(screen, (255,255,255), input_rect_username, 2)
