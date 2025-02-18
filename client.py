@@ -7,8 +7,10 @@ from buttons import ImageButton, MusicButton, RegisterButton  # Importiere die B
 from LoginScreen import LoginScreen
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 12345
+import os
+ 
+SERVER_IP = "maglev.proxy.rlwy.net"
+SERVER_PORT = 44200
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
