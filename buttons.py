@@ -13,7 +13,7 @@ class ImageButton:
         self.frame_width, self.frame_height = frame_size
         self.rect = pygame.Rect(pos, frame_size)
         if pressed_offset is None:
-            pressed_offset = (0, frame_height)
+            pressed_offset = (0, self.frame_height)
         self.pressed_offset = pressed_offset
         self.image_normal = self.image_full.subsurface(pygame.Rect(0, 0, self.frame_width, self.frame_height))
         self.image_pressed = self.image_full.subsurface(pygame.Rect(0, self.pressed_offset[1], self.frame_width, self.frame_height))
@@ -35,3 +35,28 @@ class ImageButton:
                 return True  # Button wurde geklickt
             self.pressed = False
         return False
+
+class MusicButton:
+    def __init__(self, pos, size=(100, 30)):
+        self.rect = pygame.Rect(pos, size)
+        self.music_on = True
+
+    def draw(self, surface, font):
+        if self.music_on:
+            pygame.draw.rect(surface, (180, 80, 80), self.rect)
+            text_surf = font.render("Musik aus", True, (255, 255, 255))
+        else:
+            pygame.draw.rect(surface, (80, 180, 80), self.rect)
+            text_surf = font.render("Musik an", True, (255, 255, 255))
+        text_rect = text_surf.get_rect(center=self.rect.center)
+        surface.blit(text_surf, text_rect)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos):
+            self.music_on = not self.music_on
+            return True
+        return False
+
+class RegisterButton(ImageButton):
+    def __init__(self, pos):
+        super().__init__("assets/buttons/RegButton.png", pos, frame_size=(96, 96), pressed_offset=(0, 96))
