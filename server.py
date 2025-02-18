@@ -263,7 +263,7 @@ def simulate_fight(player1, player2):
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Der Server lauscht auf allen Schnittstellen; Railway leitet dann den Traffic über den Proxy-Port weiter
-    server.bind(('0.0.0.0', 12345))
+    server.bind(('0.0.0.0', 49461))
     server.listen(5)
     print("Server gestartet und wartet auf Verbindungen...")
     try:
