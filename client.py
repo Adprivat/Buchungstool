@@ -3,14 +3,14 @@ import pygame
 import socket
 import json
 import sys
-from buttons import ImageButton, MusicButton, RegisterButton  # Importiere die Button-Klasse aus buttons.py
+from buttons import ImageButton, MusicButton, RegisterButton, FightButton, GladiatorButton  # Importiere die Button-Klasse aus buttons.py
 from LoginScreen import LoginScreen
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
 import os
-
-SERVER_IP = '127.0.0.1'  # Lokaler Server
-SERVER_PORT = 12345      # Standard Port
+ 
+SERVER_IP = "maglev.proxy.rlwy.net"
+SERVER_PORT = 44200
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
@@ -238,32 +238,29 @@ def fight_setup_screen(user_id):
 
 def main_menu(user_id, username, currency):
     clock = pygame.time.Clock()
-    music_button_rect = pygame.Rect(690,10,100,30)
-    button_rect_manage = pygame.Rect(250,250,300,50)
-    button_rect_fight = pygame.Rect(250,320,300,50)
+    music_button = MusicButton(pos=(690,10))
+    fight_button = FightButton(pos=(400,250))
+    gladiator_button = GladiatorButton(pos=(200,250))
+    
     while True:
         screen.fill((50,50,100))
         title = font.render("Hauptmenü", True, (255,255,255))
         info = font.render(f"User: {username} | Guthaben: {currency}", True, (255,255,255))
         screen.blit(title, (350,150))
         screen.blit(info, (250,200))
-        draw_button_wrapper("Gladiatoren verwalten", button_rect_manage)
-        draw_button_wrapper("Kampf beitreten", button_rect_fight)
-        if music_on:
-            draw_button_wrapper("Musik aus", music_button_rect, color=(180,80,80))
-        else:
-            draw_button_wrapper("Musik an", music_button_rect, color=(80,180,80))
+        gladiator_button.draw(screen)
+        fight_button.draw(screen)
+        music_button.draw(screen, font)  # Entferne die music_on Bedingung
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = event.pos
-                if button_rect_manage.collidepoint(mouse_pos):
-                    gladiator_screen(user_id)
-                elif button_rect_fight.collidepoint(mouse_pos):
-                    fight_setup_screen(user_id)
-                elif music_button_rect.collidepoint(mouse_pos):
-                    toggle_music()
+            if gladiator_button.handle_event(event):
+                gladiator_screen(user_id)
+            elif fight_button.handle_event(event):
+                fight_setup_screen(user_id)
+            elif music_button.handle_event(event):
+                toggle_music()
         pygame.display.flip()
         clock.tick(30)
 

@@ -60,3 +60,11 @@ class MusicButton:
 class RegisterButton(ImageButton):
     def __init__(self, pos):
         super().__init__("assets/buttons/RegButton.png", pos, frame_size=(96, 96), pressed_offset=(0, 96))
+
+class FightButton(ImageButton):
+    def __init__(self, pos):
+        super().__init__("assets/buttons/KampfButton.png", pos, frame_size=(96, 96), pressed_offset=(0, 96))
+
+class GladiatorButton(ImageButton):
+    def __init__(self, pos):
+        super().__init__("assets/buttons/PickGlad.png", pos, frame_size=(96, 96), pressed_offset=(0, 96))
