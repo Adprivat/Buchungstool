@@ -2,6 +2,7 @@ import pygame
 import sys
 import os
 from utils import toggle_music, send_request, draw_button, music_on
+from animated_background import AnimatedBackground
 
 class RegistrationScreen:
     """
@@ -17,14 +18,14 @@ class RegistrationScreen:
         """
         self.screen = screen
         self.font = font
-        # Lade und skaliere die Hintergrundbilder für die Animation
-        self.frames = []
-        for i in range(1, 29):
-            frame = pygame.image.load(os.path.join('assets/LoginBackground', f'ezgif-frame-{i:03d}.png')).convert()
-            self.frames.append(pygame.transform.scale(frame, (800, 600)))
-        self.current_frame = 0
-        self.frame_delay = 100  # Verzögerung zwischen Frames in Millisekunden
-        self.last_update = pygame.time.get_ticks()
+        # Initialisiere animierten Hintergrund
+        self.background = AnimatedBackground(
+            'assets/LoginBackground',
+            'ezgif-frame-{:03d}.png',
+            28,
+            target_size=(800, 600),
+            frame_delay=100
+        )
 
 def show_registration_screen(screen, font):
     """
@@ -51,13 +52,9 @@ def show_registration_screen(screen, font):
     
     # Hauptschleife des Registrierungsbildschirms
     while True:
-        # Aktualisiere und zeige den animierten Hintergrund
-        now = pygame.time.get_ticks()
-        if now - registration.last_update > registration.frame_delay:
-            registration.current_frame = (registration.current_frame + 1) % len(registration.frames)
-            registration.last_update = now
-        
-        screen.blit(registration.frames[registration.current_frame], (0, 0))
+        # Update und zeichne den Hintergrund
+        registration.background.update()
+        registration.background.draw(screen)
         
         # Rendere UI-Elemente
         title = font.render("Registrierung", True, (255,255,255))

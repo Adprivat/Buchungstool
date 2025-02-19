@@ -4,6 +4,7 @@ import sys
 from buttons import ImageButton, MusicButton, RegisterButton
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
+from animated_background import AnimatedBackground
 
 class LoginScreen:
     def __init__(self, screen, font):
@@ -19,32 +20,30 @@ class LoginScreen:
         self.music_button = MusicButton(pos=(690, 10))
         self.clock = pygame.time.Clock()
         
-        # Lade die Hintergrundbilder und skaliere sie
-        self.frames = []
-        for i in range(1, 29):
-            frame = pygame.image.load(os.path.join('assets/LoginBackground', f'ezgif-frame-{i:03d}.png')).convert()
-            self.frames.append(pygame.transform.scale(frame, (800, 600)))
-        self.current_frame = 0
-        self.frame_delay = 100  # milliseconds
-        self.last_update = pygame.time.get_ticks()
+        # Initialisiere animierten Hintergrund
+        self.background = AnimatedBackground(
+            'assets/LoginBackground',
+            'ezgif-frame-{:03d}.png',
+            28,
+            target_size=(800, 600),
+            frame_delay=100
+        )
         
         # Lade die Titelbilder
         self.title_frames = []
-        for i in range(8):  # sprite_0 bis sprite_7
+        for i in range(8):
             frame = pygame.image.load(os.path.join('assets/titel', f'sprite_{i}.png')).convert_alpha()
             self.title_frames.append(frame)
         self.current_title_frame = 0
-        self.title_frame_delay = 150  # milliseconds
+        self.title_frame_delay = 150
         self.last_title_update = pygame.time.get_ticks()
 
     def draw(self):
         now = pygame.time.get_ticks()
         
-        # Animiere den Hintergrund
-        if now - self.last_update > self.frame_delay:
-            self.current_frame = (self.current_frame + 1) % len(self.frames)
-            self.last_update = now
-        self.screen.blit(self.frames[self.current_frame], (0, 0))
+        # Update und zeichne den Hintergrund
+        self.background.update()
+        self.background.draw(self.screen)
         
         # Animiere den Titel
         if now - self.last_title_update > self.title_frame_delay:
