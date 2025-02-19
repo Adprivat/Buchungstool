@@ -9,24 +9,33 @@ from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
 import os
 
+# Initialisierung von Pygame und Einstellung des Fensters
 pygame.init()
-screen = pygame.display.set_mode((800, 600))
-pygame.display.set_caption("Gladiatoren Spiel")
-font = pygame.font.SysFont(None, 36)
+screen = pygame.display.set_mode((800, 600))  # Erstelle ein 800x600 Pixel großes Fenster
+pygame.display.set_caption("Gladiatoren Spiel")  # Setze den Fenstertitel
+font = pygame.font.SysFont(None, 36)  # Lade die Standard-Schriftart in Größe 36
 
+# Initialisierung der Musik
 pygame.mixer.init()
-music_on = False
+music_on = False  # Musik standardmäßig aus
 try:
     pygame.mixer.music.load("music/mygladiator.mp3")  # Hier ggf. anpassen – falls andere Musikdatei genutzt wird
-    pygame.mixer.music.set_volume(0.3)
+    pygame.mixer.music.set_volume(0.3)  # Setze Lautstärke auf 30%
     # Musik wird nicht automatisch gestartet
 except Exception as e:
     print("Fehler beim Laden der Hintergrundmusik:", e)
 
+# Hilfsfunktion zum Zeichnen von Buttons
 def draw_button_wrapper(text, rect, color=(70,130,180)):
+    """Wrapper-Funktion für das Zeichnen von Buttons mit den korrekten Screen- und Font-Parametern"""
     draw_button(screen, font, text, rect, color)
 
 def login_screen():
+    """
+    Zeigt den Login-Bildschirm an und verarbeitet die Login-Logik
+    Returns:
+        tuple: (user_id, username, currency) bei erfolgreichem Login
+    """
     login_screen = LoginScreen(screen, font)
     while True:
         login_screen.draw()
@@ -38,18 +47,23 @@ def login_screen():
         login_screen.clock.tick(30)
 
 def gladiator_screen(user_id):
+    """
+    Zeigt den Bildschirm zur Verwaltung der Gladiatoren an
+    Args:
+        user_id: ID des eingeloggten Benutzers
+    """
     clock = pygame.time.Clock()
     new_name = ""
     active_field = "new_name"
-    input_rect_newname = pygame.Rect(300,480,200,40)
+    input_rect_newname = pygame.Rect(400,490,260,40)
     # Dynamisches Layout: Buttons für Gladiator-Typen in mehreren Zeilen, wenn nötig.
     margin = 50
     gap = 10
-    button_width = 120
-    button_height = 30
+    button_width = 160
+    button_height = 40
     window_width = 800
     x = margin
-    y = 420
+    y = 350
     available_types = ["Retiarius", "Secutor", "Murmillo", "Thraex", "Hoplomachus", "Dimachaerus", "Provocator"]
     type_buttons = []
     for typ in available_types:
@@ -60,8 +74,8 @@ def gladiator_screen(user_id):
         type_buttons.append((rect, typ))
         x += button_width + gap
     # "Zurück"-Button unterhalb der Typ-Buttons
-    button_rect_back = pygame.Rect(300, y + button_height + 20, 200, 50)
-    button_rect_recruit = pygame.Rect(300, button_rect_back.y - 60, 200, 50)
+    button_rect_back = pygame.Rect(50, y + button_height + 80, 200, 50)
+    button_rect_recruit = pygame.Rect(50, button_rect_back.y - 60, 200, 50)
     selected_type = None
 
     def fetch_gladiators():
@@ -87,7 +101,7 @@ def gladiator_screen(user_id):
                 screen.blit(text, (50, y_offset))
                 y_offset += 30
         prompt = font.render("Wähle Gladiator-Typ:", True, (255,255,255))
-        screen.blit(prompt, (50,410))
+        screen.blit(prompt, (50,250))
         for rect, typ in type_buttons:
             if selected_type == typ:
                 pygame.draw.rect(screen, (0,255,0), rect)
@@ -97,7 +111,7 @@ def gladiator_screen(user_id):
             text_rect = typ_text.get_rect(center=(rect.x+rect.width//2, rect.y+rect.height//2))
             screen.blit(typ_text, text_rect)
         prompt_name = font.render("Neuer Gladiator Name:", True, (255,255,255))
-        screen.blit(prompt_name, (300,440))
+        screen.blit(prompt_name, (400,445))
         pygame.draw.rect(screen, (255,255,255), input_rect_newname, 2)
         new_text = font.render(new_name, True, (255,255,255))
         screen.blit(new_text, (input_rect_newname.x+5, input_rect_newname.y+5))
@@ -147,6 +161,11 @@ def gladiator_screen(user_id):
         clock.tick(30)
 
 def fight_setup_screen(user_id):
+    """
+    Zeigt den Bildschirm zur Kampfvorbereitung an
+    Args:
+        user_id: ID des eingeloggten Benutzers
+    """
     clock = pygame.time.Clock()
     screen.fill((0, 0, 0))
     
@@ -206,20 +225,46 @@ def fight_setup_screen(user_id):
         clock.tick(30)
 
 def main_menu(user_id, username, currency):
+    """
+    Zeigt das Hauptmenü des Spiels an
+    Args:
+        user_id: ID des eingeloggten Benutzers
+        username: Benutzername
+        currency: Aktuelles Guthaben des Spielers
+    """
     clock = pygame.time.Clock()
     music_button = MusicButton(pos=(690,10))
-    fight_button = FightButton(pos=(400,250))
-    gladiator_button = GladiatorButton(pos=(200,250))
+    fight_button = FightButton(pos=(400,320))
+    gladiator_button = GladiatorButton(pos=(200,320))
+    
+    # Lade die Titelbilder für das Hauptmenü
+    title_frames = []
+    for i in range(8):  # sprite_0 bis sprite_7
+        frame = pygame.image.load(os.path.join('assets/titel_Hauptmenu', f'sprite_{i}.png')).convert_alpha()
+        title_frames.append(frame)
+    current_title_frame = 0
+    title_frame_delay = 150  # milliseconds
+    last_title_update = pygame.time.get_ticks()
     
     while True:
         screen.fill((50,50,100))
-        title = font.render("Hauptmenü", True, (255,255,255))
+        
+        # Animiere den Titel
+        now = pygame.time.get_ticks()
+        if now - last_title_update > title_frame_delay:
+            current_title_frame = (current_title_frame + 1) % len(title_frames)
+            last_title_update = now
+        
+        # Zentriere den Titel
+        title_frame = title_frames[current_title_frame]
+        title_rect = title_frame.get_rect(center=(400, 100))  # Zentriert bei y=100
+        screen.blit(title_frame, title_rect)
+        
         info = font.render(f"User: {username} | Guthaben: {currency}", True, (255,255,255))
-        screen.blit(title, (350,150))
-        screen.blit(info, (250,200))
+        screen.blit(info, (250,270))
         gladiator_button.draw(screen)
         fight_button.draw(screen)
-        music_button.draw(screen, font)  # Entferne die music_on Bedingung
+        music_button.draw(screen, font)
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -234,6 +279,12 @@ def main_menu(user_id, username, currency):
         clock.tick(30)
 
 def join_fight(user_id, gladiator_id):
+    """
+    Tritt einem Kampf bei oder erstellt einen neuen
+    Args:
+        user_id: ID des eingeloggten Benutzers
+        gladiator_id: ID des ausgewählten Gladiators
+    """
     response = send_request({
         'command': 'join_fight',
         'user_id': user_id,
@@ -253,6 +304,11 @@ def join_fight(user_id, gladiator_id):
             print("Fehler beim Kampfbeitritt:", response.get('message'))  # Debug-Ausgabe
 
 def show_waiting_screen(gladiator):
+    """
+    Zeigt den Wartebildschirm während der Suche nach einem Gegner
+    Args:
+        gladiator: Dictionary mit den Informationen des wartenden Gladiators
+    """
     clock = pygame.time.Clock()
     
     # Timer für die Kampfabfrage
@@ -337,6 +393,11 @@ def show_waiting_screen(gladiator):
         clock.tick(30)
 
 def show_fight_result(result):
+    """
+    Zeigt das Ergebnis eines Kampfes an
+    Args:
+        result: Dictionary mit den Kampfergebnissen und dem Kampflog
+    """
     print("Zeige Kampfergebnis:", result)  # Debug-Ausgabe
     
     clock = pygame.time.Clock()
@@ -407,8 +468,10 @@ def show_fight_result(result):
         clock.tick(30)
 
 def main():
-    user_id, username, currency = login_screen()
-    main_menu(user_id, username, currency)
+    """Hauptfunktion des Spiels"""
+    user_id, username, currency = login_screen()  # Starte mit dem Login-Bildschirm
+    main_menu(user_id, username, currency)  # Nach erfolgreichem Login zeige das Hauptmenü
 
+# Starte das Spiel, wenn die Datei direkt ausgeführt wird
 if __name__ == '__main__':
     main()
