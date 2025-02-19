@@ -6,15 +6,15 @@ load_dotenv()
 
 # Datenbank-Konfiguration
 db_config = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'port': int(os.getenv('DB_PORT', '3306')),
-    'user': os.getenv('DB_USER', 'root'),
-    'password': os.getenv('DB_PASSWORD', ''),
-    'database': os.getenv('DB_NAME', 'gladiator')
+    'host': os.environ['DB_HOST'],
+    'port': int(os.environ['DB_PORT']),
+    'user': os.environ['DB_USER'],
+    'password': os.environ['DB_PASSWORD'],
+    'database': os.environ['DB_NAME']
 }
 
 # Server-Konfiguration
 server_config = {
-    'host': os.getenv('SERVER_HOST', '0.0.0.0'),
-    'port': int(os.getenv('SERVER_PORT', '49461'))
+    'host': os.environ['SERVER_HOST'],
+    'port': int(os.environ['SERVER_PORT'])
 } 
