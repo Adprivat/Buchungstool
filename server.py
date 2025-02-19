@@ -11,6 +11,10 @@ from config import db_config, server_config
 db = mysql.connector.connect(**db_config)
 cursor = db.cursor()
 
+# Globale Variablen
+waiting_players = []
+current_fight_results = {}
+
 def setup_database():
     # Tabelle für Nutzer erstellen
     cursor.execute('''
@@ -60,9 +64,6 @@ def ensure_gladiator_table_columns():
     db.commit()
 
 setup_database()
-
-# Liste wartender Spieler für den Kampf
-waiting_players = []
 
 def handle_client(client_socket):
     try:
@@ -249,12 +250,9 @@ def join_fight(request):
         player2 = waiting_players.pop(0)
         fight_result = simulate_fight(player1, player2)
         
-        # Speichere das Kampfergebnis in einer globalen Variable
-        global current_fight_results
-        current_fight_results = {
-            str(player1['gladiator_id']): fight_result,
-            str(player2['gladiator_id']): fight_result
-        }
+        # Speichere das Kampfergebnis
+        current_fight_results[str(player1['gladiator_id'])] = fight_result
+        current_fight_results[str(player2['gladiator_id'])] = fight_result
         
         # Lösche das Ergebnis für den aktuellen Spieler
         if str(gladiator_id) in current_fight_results:
@@ -284,9 +282,6 @@ def check_fight_status(request):
             return {'status': 'waiting'}
     
     return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
-
-# Globale Variable für Kampfergebnisse
-current_fight_results = {}
 
 def simulate_fight(player1, player2):
     # Kampfprotokoll für detaillierte Ausgabe
@@ -366,21 +361,6 @@ def simulate_fight(player1, player2):
     # Bestimme den Gewinner
     winner = player1 if p1_current['lebenspunkte'] > 0 else player2
     loser = player2 if p1_current['lebenspunkte'] > 0 else player1
-    
-    # Aktualisiere die Gladiatoren in der Datenbank
-    cursor.execute("""
-        UPDATE gladiators 
-        SET lebenspunkte = %s, ausdauer = %s 
-        WHERE id = %s
-    """, (p1_current['lebenspunkte'], p1_current['ausdauer'], player1['gladiator_id']))
-    
-    cursor.execute("""
-        UPDATE gladiators 
-        SET lebenspunkte = %s, ausdauer = %s 
-        WHERE id = %s
-    """, (p2_current['lebenspunkte'], p2_current['ausdauer'], player2['gladiator_id']))
-    
-    db.commit()
     
     return {
         'status': 'success',
