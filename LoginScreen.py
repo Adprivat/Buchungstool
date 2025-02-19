@@ -4,6 +4,7 @@ import sys
 from buttons import ImageButton, MusicButton, RegisterButton
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
+from animated_background import AnimatedBackground
 
 class LoginScreen:
     def __init__(self, screen, font):
@@ -12,29 +13,55 @@ class LoginScreen:
         self.username = ""
         self.password = ""
         self.active_field = "username"
-        self.input_rect_username = pygame.Rect(300, 200, 200, 40)
-        self.input_rect_password = pygame.Rect(300, 260, 200, 40)
-        self.login_button = ImageButton("assets/buttons/login.png", pos=(350, 320), frame_size=(96, 96), pressed_offset=(0, 96))
-        self.register_button = RegisterButton(pos=(350, 400))
+        self.input_rect_username = pygame.Rect(300, 250, 200, 40)
+        self.input_rect_password = pygame.Rect(300, 320, 200, 40)
+        self.login_button = ImageButton("assets/buttons/login.png", pos=(290, 400), frame_size=(96, 96), pressed_offset=(0, 96))
+        self.register_button = RegisterButton(pos=(410, 400))
         self.music_button = MusicButton(pos=(690, 10))
         self.clock = pygame.time.Clock()
-        # Lade die Bilder und skaliere sie auf Fenstergröße
-        self.frames = []
-        for i in range(1, 29):
-            frame = pygame.image.load(os.path.join('assets/LoginBackground', f'ezgif-frame-{i:03d}.png')).convert()
-            self.frames.append(pygame.transform.scale(frame, (800, 600)))
-        self.current_frame = 0
-        self.frame_delay = 100  # milliseconds
-        self.last_update = pygame.time.get_ticks()
+        
+        # Initialisiere animierten Hintergrund
+        self.background = AnimatedBackground(
+            'assets/LoginBackground',
+            'ezgif-frame-{:03d}.png',
+            28,
+            target_size=(800, 600),
+            frame_delay=100
+        )
+        
+        # Lade die Titelbilder
+        self.title_frames = []
+        for i in range(8):
+            frame = pygame.image.load(os.path.join('assets/titel', f'sprite_{i}.png')).convert_alpha()
+            self.title_frames.append(frame)
+        self.current_title_frame = 0
+        self.title_frame_delay = 150
+        self.last_title_update = pygame.time.get_ticks()
 
     def draw(self):
         now = pygame.time.get_ticks()
-        if now - self.last_update > self.frame_delay:
-            self.current_frame = (self.current_frame + 1) % len(self.frames)
-            self.last_update = now
-        self.screen.blit(self.frames[self.current_frame], (0, 0))
-        title = self.font.render("Gladiatoren Spiel - Login", True, (255, 255, 255))
-        self.screen.blit(title, (220, 100))
+        
+        # Update und zeichne den Hintergrund
+        self.background.update()
+        self.background.draw(self.screen)
+        
+        # Animiere den Titel
+        if now - self.last_title_update > self.title_frame_delay:
+            self.current_title_frame = (self.current_title_frame + 1) % len(self.title_frames)
+            self.last_title_update = now
+        
+        # Zentriere den Titel
+        title_frame = self.title_frames[self.current_title_frame]
+        title_rect = title_frame.get_rect(center=(400, 100))
+        self.screen.blit(title_frame, title_rect)
+
+        # Beschriftungen für die Eingabefelder
+        username_label = self.font.render("Benutzername:", True, (255, 255, 255))
+        password_label = self.font.render("Passwort:", True, (255, 255, 255))
+        self.screen.blit(username_label, (self.input_rect_username.x, self.input_rect_username.y - 30))
+        self.screen.blit(password_label, (self.input_rect_password.x, self.input_rect_password.y - 30))
+
+        # Zeichne die Eingabefelder
         pygame.draw.rect(self.screen, (255, 255, 255), self.input_rect_username, 2)
         pygame.draw.rect(self.screen, (255, 255, 255), self.input_rect_password, 2)
         user_text = self.font.render(self.username, True, (255, 255, 255))
