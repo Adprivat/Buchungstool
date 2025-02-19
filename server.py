@@ -27,14 +27,10 @@ def setup_database():
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT,
             name VARCHAR(255),
-            gladiator_type VARCHAR(50),
-            lp INT,
-            agilitaet INT,
-            konstitution INT,
-            staerke INT,
-            ausdauer INT,
-            praezision INT,
-            grundruestung INT,
+            lebenspunkte INT NOT NULL DEFAULT 10,
+            angriff INT NOT NULL DEFAULT 0,
+            verteidigung INT NOT NULL DEFAULT 0,
+            ausdauer INT NOT NULL DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
@@ -48,14 +44,10 @@ def ensure_gladiator_table_columns():
     Falls nicht, werden sie mittels ALTER TABLE hinzugefügt.
     """
     expected_columns = {
-        "gladiator_type": "VARCHAR(50)",
-        "lp": "INT NOT NULL DEFAULT 100",
-        "agilitaet": "INT NOT NULL DEFAULT 10",
-        "konstitution": "INT NOT NULL DEFAULT 10",
-        "staerke": "INT NOT NULL DEFAULT 10",
-        "ausdauer": "INT NOT NULL DEFAULT 10",
-        "praezision": "INT NOT NULL DEFAULT 10",
-        "grundruestung": "INT NOT NULL DEFAULT 0"
+        "lebenspunkte": "INT NOT NULL DEFAULT 10",
+        "angriff": "INT NOT NULL DEFAULT 0",
+        "verteidigung": "INT NOT NULL DEFAULT 0",
+        "ausdauer": "INT NOT NULL DEFAULT 0"
     }
     for column, definition in expected_columns.items():
         cursor.execute("SHOW COLUMNS FROM gladiators LIKE %s", (column,))
@@ -128,19 +120,16 @@ def login_user(request):
 
 # Basiswerte für alle Gladiatoren (Standardwerte, die dann modifiziert werden)
 BASE_STATS = {
-    "lp": 100,
-    "Agilität": 10,
-    "Konstitution": 10,
-    "Stärke": 10,
-    "Ausdauer": 10,
-    "Präzision": 10,
-    "Grundrüstung": 0
+    "lebenspunkte": 10,
+    "angriff": 10,
+    "verteidigung": 10,
+    "ausdauer": 10
 }
 
 def recruit_gladiator(request):
     user_id = request.get('user_id')
     name = request.get('name')
-    chosen_type = request.get('type')  # Beispiel: "Retiarius"
+    chosen_type = request.get('type')
     
     if chosen_type not in gladiator_types.gladiator_types:
         return {'status': 'error', 'message': 'Ungültiger Gladiator-Typ'}
@@ -150,53 +139,48 @@ def recruit_gladiator(request):
     for stat, mod in g_type.modifiers.items():
         if stat in final_stats:
             final_stats[stat] += mod
-        else:
-            final_stats[stat] = mod
 
     cursor.execute('''
-        INSERT INTO gladiators (user_id, name, gladiator_type, lp, agilitaet, konstitution, staerke, ausdauer, praezision, grundruestung)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO gladiators (user_id, name, lebenspunkte, angriff, verteidigung, ausdauer)
+        VALUES (%s, %s, %s, %s, %s, %s)
     ''', (
         user_id,
         name,
-        chosen_type,
-        final_stats["lp"],
-        final_stats["Agilität"],
-        final_stats["Konstitution"],
-        final_stats["Stärke"],
-        final_stats["Ausdauer"],
-        final_stats["Präzision"],
-        final_stats["Grundrüstung"]
+        final_stats["lebenspunkte"],
+        final_stats["angriff"],
+        final_stats["verteidigung"],
+        final_stats["ausdauer"]
     ))
     db.commit()
+    
     return {
         'status': 'success',
-        'message': f'{chosen_type} {name} angeheuert',
+        'message': f'Gladiator {name} ({chosen_type}) wurde rekrutiert',
         'gladiator': {
             'name': name,
-            'type': chosen_type,
-            'stats': final_stats,
-            'special_ability': g_type.special_ability
+            'typ': chosen_type,
+            'lebenspunkte': final_stats["lebenspunkte"],
+            'angriff': final_stats["angriff"],
+            'verteidigung': final_stats["verteidigung"],
+            'ausdauer': final_stats["ausdauer"],
+            'staerken': g_type.strengths,
+            'schwaechen': g_type.weaknesses
         }
     }
 
 def get_gladiators(request):
     user_id = request.get('user_id')
-    cursor.execute("SELECT id, name, gladiator_type, lp, agilitaet, konstitution, staerke, ausdauer, praezision, grundruestung FROM gladiators WHERE user_id=%s", (user_id,))
+    cursor.execute("SELECT id, name, lebenspunkte, angriff, verteidigung, ausdauer FROM gladiators WHERE user_id=%s", (user_id,))
     gladiators = cursor.fetchall()
     gladiator_list = []
     for g in gladiators:
         gladiator_list.append({
             'id': g[0],
             'name': g[1],
-            'gladiator_type': g[2],
-            'lp': g[3],
-            'agilitaet': g[4],
-            'konstitution': g[5],
-            'staerke': g[6],
-            'ausdauer': g[7],
-            'praezision': g[8],
-            'grundruestung': g[9]
+            'lebenspunkte': g[2],
+            'angriff': g[3],
+            'verteidigung': g[4],
+            'ausdauer': g[5]
         })
     return {'status': 'success', 'gladiators': gladiator_list}
 
@@ -216,41 +200,145 @@ def place_bet(request):
 def join_fight(request):
     user_id = request.get('user_id')
     gladiator_id = request.get('gladiator_id')
-    bet_amount = request.get('bet_amount')
-    cursor.execute("SELECT currency FROM users WHERE id=%s", (user_id,))
-    result = cursor.fetchone()
-    if result and result[0] >= bet_amount:
-        new_currency = result[0] - bet_amount
-        cursor.execute("UPDATE users SET currency=%s WHERE id=%s", (new_currency, user_id))
-        db.commit()
-        player = {'user_id': user_id, 'gladiator_id': gladiator_id, 'bet': bet_amount}
-        waiting_players.append(player)
-        if len(waiting_players) >= 2:
-            player1 = waiting_players.pop(0)
-            player2 = waiting_players.pop(0)
-            return simulate_fight(player1, player2)
-        else:
-            return {'status': 'waiting', 'message': 'Warte auf einen weiteren Gegner'}
+    
+    # Prüfe, ob der Gladiator existiert und dem Benutzer gehört
+    cursor.execute("""
+        SELECT id, name, lebenspunkte, angriff, verteidigung, ausdauer 
+        FROM gladiators 
+        WHERE id=%s AND user_id=%s
+    """, (gladiator_id, user_id))
+    gladiator = cursor.fetchone()
+    
+    if not gladiator:
+        return {'status': 'error', 'message': 'Gladiator nicht gefunden oder gehört nicht dir'}
+    
+    # Erstelle ein Spieler-Objekt mit allen relevanten Informationen
+    player = {
+        'user_id': user_id,
+        'gladiator_id': gladiator_id,
+        'gladiator_name': gladiator[1],
+        'lebenspunkte': gladiator[2],
+        'angriff': gladiator[3],
+        'verteidigung': gladiator[4],
+        'ausdauer': gladiator[5]
+    }
+    
+    # Füge den Spieler zur Warteliste hinzu
+    waiting_players.append(player)
+    
+    # Wenn zwei Spieler warten, starte den Kampf
+    if len(waiting_players) >= 2:
+        player1 = waiting_players.pop(0)
+        player2 = waiting_players.pop(0)
+        return simulate_fight(player1, player2)
     else:
-        return {'status': 'error', 'message': 'Nicht genügend Guthaben'}
+        return {
+            'status': 'waiting',
+            'message': 'Warte auf einen Gegner...',
+            'gladiator': player
+        }
 
 def simulate_fight(player1, player2):
-    cursor.execute("SELECT staerke, agilitaet FROM gladiators WHERE id=%s", (player1['gladiator_id'],))
-    g1 = cursor.fetchone()
-    cursor.execute("SELECT staerke, agilitaet FROM gladiators WHERE id=%s", (player2['gladiator_id'],))
-    g2 = cursor.fetchone()
-    if not g1 or not g2:
-        return {'status': 'error', 'message': 'Gladiator nicht gefunden'}
-    score1 = g1[0] * 0.6 + g1[1] * 0.4 + random.random() * 10
-    score2 = g2[0] * 0.6 + g2[1] * 0.4 + random.random() * 10
-    winner = player1 if score1 > score2 else player2
-    total_pot = player1['bet'] + player2['bet']
-    cursor.execute("SELECT currency FROM users WHERE id=%s", (winner['user_id'],))
-    current = cursor.fetchone()[0]
-    new_currency = current + total_pot
-    cursor.execute("UPDATE users SET currency=%s WHERE id=%s", (new_currency, winner['user_id']))
+    # Kampfprotokoll für detaillierte Ausgabe
+    fight_log = []
+    
+    # Initialisiere aktuelle Werte für den Kampf
+    p1_current = {
+        'lebenspunkte': player1['lebenspunkte'],
+        'ausdauer': player1['ausdauer']
+    }
+    p2_current = {
+        'lebenspunkte': player2['lebenspunkte'],
+        'ausdauer': player2['ausdauer']
+    }
+    
+    # Kampfrunde
+    while p1_current['lebenspunkte'] > 0 and p2_current['lebenspunkte'] > 0:
+        # Spieler 1 greift an
+        attack_roll = random.randint(1, 20)
+        defense_roll = random.randint(1, 20)
+        
+        # Berechne Angriffswert (mit Ausdauer-Malus)
+        attack_value = attack_roll + player1['angriff']
+        if p1_current['ausdauer'] <= 0:
+            attack_value -= 5
+            fight_log.append(f"{player1['gladiator_name']} ist erschöpft (-5 auf Angriff)")
+        
+        # Berechne Verteidigungswert
+        defense_value = defense_roll + player2['verteidigung']
+        
+        fight_log.append(f"{player1['gladiator_name']} greift an: {attack_roll}+{player1['angriff']} = {attack_value}")
+        fight_log.append(f"{player2['gladiator_name']} verteidigt: {defense_roll}+{player2['verteidigung']} = {defense_value}")
+        
+        # Reduziere Ausdauer des Angreifers
+        p1_current['ausdauer'] -= 1
+        
+        # Berechne Schaden
+        if attack_value > defense_value:
+            damage = attack_value - defense_value
+            p2_current['lebenspunkte'] -= damage
+            fight_log.append(f"Treffer! {player2['gladiator_name']} verliert {damage} Lebenspunkte")
+        else:
+            fight_log.append("Verteidigung erfolgreich!")
+        
+        # Wenn Spieler 2 noch lebt, kontert er
+        if p2_current['lebenspunkte'] > 0:
+            attack_roll = random.randint(1, 20)
+            defense_roll = random.randint(1, 20)
+            
+            # Berechne Angriffswert (mit Ausdauer-Malus)
+            attack_value = attack_roll + player2['angriff']
+            if p2_current['ausdauer'] <= 0:
+                attack_value -= 5
+                fight_log.append(f"{player2['gladiator_name']} ist erschöpft (-5 auf Angriff)")
+            
+            # Berechne Verteidigungswert
+            defense_value = defense_roll + player1['verteidigung']
+            
+            fight_log.append(f"{player2['gladiator_name']} greift an: {attack_roll}+{player2['angriff']} = {attack_value}")
+            fight_log.append(f"{player1['gladiator_name']} verteidigt: {defense_roll}+{player1['verteidigung']} = {defense_value}")
+            
+            # Reduziere Ausdauer des Angreifers
+            p2_current['ausdauer'] -= 1
+            
+            # Berechne Schaden
+            if attack_value > defense_value:
+                damage = attack_value - defense_value
+                p1_current['lebenspunkte'] -= damage
+                fight_log.append(f"Treffer! {player1['gladiator_name']} verliert {damage} Lebenspunkte")
+            else:
+                fight_log.append("Verteidigung erfolgreich!")
+        
+        fight_log.append(f"\nStatus nach der Runde:")
+        fight_log.append(f"{player1['gladiator_name']}: LP={p1_current['lebenspunkte']}, AUS={p1_current['ausdauer']}")
+        fight_log.append(f"{player2['gladiator_name']}: LP={p2_current['lebenspunkte']}, AUS={p2_current['ausdauer']}\n")
+    
+    # Bestimme den Gewinner
+    winner = player1 if p1_current['lebenspunkte'] > 0 else player2
+    loser = player2 if p1_current['lebenspunkte'] > 0 else player1
+    
+    # Aktualisiere die Gladiatoren in der Datenbank
+    cursor.execute("""
+        UPDATE gladiators 
+        SET lebenspunkte = %s, ausdauer = %s 
+        WHERE id = %s
+    """, (p1_current['lebenspunkte'], p1_current['ausdauer'], player1['gladiator_id']))
+    
+    cursor.execute("""
+        UPDATE gladiators 
+        SET lebenspunkte = %s, ausdauer = %s 
+        WHERE id = %s
+    """, (p2_current['lebenspunkte'], p2_current['ausdauer'], player2['gladiator_id']))
+    
     db.commit()
-    return {'status': 'success', 'message': 'Kampf beendet', 'winner': winner['user_id'], 'pot': total_pot}
+    
+    return {
+        'status': 'success',
+        'message': f"Kampf beendet! {winner['gladiator_name']} hat gewonnen!",
+        'winner': winner,
+        'loser': loser,
+        'fight_log': fight_log
+    }
 
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
