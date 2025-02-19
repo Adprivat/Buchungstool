@@ -138,6 +138,8 @@ def recruit_gladiator(request):
     
     g_type = gladiator_types.gladiator_types[chosen_type]
     final_stats = BASE_STATS.copy()
+    
+    # Wende die Modifikatoren an
     for stat, mod in g_type.modifiers.items():
         if stat in final_stats:
             final_stats[stat] += mod
@@ -161,7 +163,7 @@ def recruit_gladiator(request):
         'message': f'Gladiator {name} ({chosen_type}) wurde rekrutiert',
         'gladiator': {
             'name': name,
-            'typ': chosen_type,
+            'gladiator_type': chosen_type,
             'lebenspunkte': final_stats["lebenspunkte"],
             'angriff': final_stats["angriff"],
             'verteidigung': final_stats["verteidigung"],
