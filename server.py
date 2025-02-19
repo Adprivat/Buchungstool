@@ -238,8 +238,17 @@ def join_fight(request):
     # Prüfe zuerst, ob bereits ein Kampfergebnis vorliegt
     if str(gladiator_id) in current_fight_results:
         result = current_fight_results[str(gladiator_id)]
-        del current_fight_results[str(gladiator_id)]
+        # Lösche das Ergebnis für beide Gladiatoren
+        winner_id = str(result['winner']['gladiator_id'])
+        loser_id = str(result['loser']['gladiator_id'])
+        if winner_id in current_fight_results:
+            del current_fight_results[winner_id]
+        if loser_id in current_fight_results:
+            del current_fight_results[loser_id]
         return result
+    
+    # Entferne den Spieler aus der Warteschlange, falls er bereits wartet
+    waiting_players[:] = [p for p in waiting_players if p['gladiator_id'] != gladiator_id]
     
     # Füge den Spieler zur Warteliste hinzu
     waiting_players.append(player)
@@ -248,17 +257,15 @@ def join_fight(request):
     if len(waiting_players) >= 2:
         player1 = waiting_players.pop(0)
         player2 = waiting_players.pop(0)
+        
+        # Simuliere den Kampf
         fight_result = simulate_fight(player1, player2)
         
-        # Speichere das Kampfergebnis
+        # Speichere das Kampfergebnis für beide Gladiatoren
         current_fight_results[str(player1['gladiator_id'])] = fight_result
         current_fight_results[str(player2['gladiator_id'])] = fight_result
         
-        # Lösche das Ergebnis für den aktuellen Spieler
-        if str(gladiator_id) in current_fight_results:
-            result = current_fight_results[str(gladiator_id)]
-            del current_fight_results[str(gladiator_id)]
-            return result
+        return fight_result
     
     return {
         'status': 'waiting',
@@ -272,8 +279,13 @@ def check_fight_status(request):
     # Prüfe zuerst, ob ein Kampfergebnis vorliegt
     if str(gladiator_id) in current_fight_results:
         result = current_fight_results[str(gladiator_id)]
-        # Lösche das Ergebnis nach dem Abrufen
-        del current_fight_results[str(gladiator_id)]
+        # Lösche das Ergebnis für beide Gladiatoren
+        winner_id = str(result['winner']['gladiator_id'])
+        loser_id = str(result['loser']['gladiator_id'])
+        if winner_id in current_fight_results:
+            del current_fight_results[winner_id]
+        if loser_id in current_fight_results:
+            del current_fight_results[loser_id]
         return result
     
     # Suche nach einem laufenden Kampf mit diesem Gladiator
