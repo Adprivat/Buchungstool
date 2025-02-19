@@ -3,7 +3,7 @@ import pygame
 import socket
 import json
 import sys
-from buttons import ImageButton, MusicButton, RegisterButton, FightButton, GladiatorButton  # Importiere die Button-Klasse aus buttons.py
+from buttons import ImageButton, MusicButton, RegisterButton, FightButton, GladiatorButton, Fight_s_Button  # Importiere die Button-Klasse aus buttons.py
 from LoginScreen import LoginScreen
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
@@ -176,7 +176,15 @@ def fight_setup_screen(user_id):
         user_id: ID des eingeloggten Benutzers
     """
     clock = pygame.time.Clock()
-    screen.fill((0, 0, 0))
+    
+    # Initialisiere animierten Hintergrund
+    background = AnimatedBackground(
+        'assets/LoginBackground',
+        'ezgif-frame-{:03d}.png',
+        28,
+        target_size=(800, 600),
+        frame_delay=100
+    )
     
     # Hole die Liste der Gladiatoren
     response = send_request({
@@ -186,51 +194,56 @@ def fight_setup_screen(user_id):
     
     if response and response.get('status') == 'success':
         gladiators = response['gladiators']
-        y_pos = 50
-        for g in gladiators:
-            # Zeige Gladiator-Info
-            text = font.render(
-                f"ID: {g['id']} - {g['name']} ({g['gladiator_type']}) | "
-                f"LP: {g['lebenspunkte']}, A: {g['angriff']}, "
-                f"V: {g['verteidigung']}, E: {g['ausdauer']}", 
-                True, (255,255,255)
-            )
-            screen.blit(text, (50, y_pos))
-            
-            # Kampf-Button für jeden Gladiator
-            fight_button_rect = pygame.Rect(600, y_pos, 100, 30)
-            draw_button_wrapper("Kämpfen", fight_button_rect)
-            
-            # Speichere Gladiator-ID für den Button
-            g['button_rect'] = fight_button_rect
-            
-            y_pos += 40
-    
-    # Zurück-Button
-    back_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
-    draw_button_wrapper("Zurück", back_button_rect)
-    
-    pygame.display.flip()
+        fight_buttons = []  # Liste für die Fight-Buttons
+        
+        # Erstelle Fight-Buttons für jeden Gladiator
+        for i, g in enumerate(gladiators):
+            y_pos = 50 + (i * 70)  # Vertikaler Abstand zwischen den Gladiatoren
+            fight_button = Fight_s_Button(pos=(600, y_pos))
+            fight_buttons.append((fight_button, g))  # Speichere Button und komplettes Gladiator-Dict
     
     # Event-Loop
     while True:
+        # Update und zeichne den Hintergrund
+        background.update()
+        background.draw(screen)
+        
+        # Zeichne Gladiatoren und ihre Buttons
+        if response and response.get('status') == 'success':
+            for i, (button, g) in enumerate(fight_buttons):
+                y_pos = 50 + (i * 70)
+                # Zeige Gladiator-Info
+                text = font.render(
+                    f"{g['name']} ({g['gladiator_type']}) | "
+                    f"LP: {g['lebenspunkte']}, A: {g['angriff']}, "
+                    f"V: {g['verteidigung']}, E: {g['ausdauer']}", 
+                    True, (255,255,255)
+                )
+                screen.blit(text, (50, y_pos + 10))  # +10 für vertikale Zentrierung mit Button
+                button.draw(screen)
+        
+        # Zurück-Button
+        back_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
+        draw_button_wrapper("Zurück", back_button_rect)
+        
+        # Event-Handling
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = event.pos
-                # Prüfe Zurück-Button
-                if back_button_rect.collidepoint(mouse_pos):
+            
+            # Prüfe Fight-Buttons mit handle_event
+            for button, gladiator in fight_buttons:
+                if button.handle_event(event):  # Verwende handle_event statt rect.collidepoint
+                    join_fight(user_id, gladiator['id'])
                     return
-                
-                # Prüfe Kampf-Buttons
-                if response and response.get('status') == 'success':
-                    for g in gladiators:
-                        if g['button_rect'].collidepoint(mouse_pos):
-                            join_fight(user_id, g['id'])
-                            return
+                    
+            # Prüfe Zurück-Button
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if back_button_rect.collidepoint(event.pos):
+                    return
         
+        pygame.display.flip()
         clock.tick(30)
 
 def main_menu(user_id, username, currency):
@@ -298,23 +311,32 @@ def join_fight(user_id, gladiator_id):
         user_id: ID des eingeloggten Benutzers
         gladiator_id: ID des ausgewählten Gladiators
     """
+    print(f"Versuche Kampf beizutreten mit Gladiator ID: {gladiator_id}")  # Debug-Ausgabe
+    
     response = send_request({
         'command': 'join_fight',
         'user_id': user_id,
         'gladiator_id': gladiator_id
     })
     
-    print("Join Fight Response:", response)  # Debug-Ausgabe
+    print("Server Antwort:", response)  # Debug-Ausgabe
     
     if response:
         if response.get('status') == 'waiting':
-            # Zeige Warteschirm an
-            show_waiting_screen(response['gladiator'])
+            # Starte Wartebildschirm
+            gladiator_info = response.get('gladiator', {})
+            if gladiator_info:
+                show_waiting_screen(gladiator_info)
+            else:
+                print("Fehler: Keine Gladiator-Informationen erhalten")
         elif response.get('status') == 'success':
-            # Zeige Kampfergebnis an
+            # Zeige sofortiges Kampfergebnis
             show_fight_result(response)
         else:
-            print("Fehler beim Kampfbeitritt:", response.get('message'))  # Debug-Ausgabe
+            print(f"Unerwarteter Status: {response.get('status')}")
+            print(f"Fehlermeldung: {response.get('message', 'Keine Fehlermeldung')}")
+    else:
+        print("Keine Antwort vom Server erhalten")
 
 def show_waiting_screen(gladiator):
     """

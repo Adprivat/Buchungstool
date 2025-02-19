@@ -68,3 +68,7 @@ class FightButton(ImageButton):
 class GladiatorButton(ImageButton):
     def __init__(self, pos):
         super().__init__("assets/buttons/PickGlad.png", pos, frame_size=(171, 118), pressed_offset=(0, 193))
+
+class Fight_s_Button(ImageButton):
+    def __init__(self, pos):
+        super().__init__("assets/buttons/fight_button.png", pos, frame_size=(96, 96), pressed_offset=(0, 96))
