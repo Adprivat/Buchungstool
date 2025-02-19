@@ -241,13 +241,42 @@ def join_fight(request):
     if len(waiting_players) >= 2:
         player1 = waiting_players.pop(0)
         player2 = waiting_players.pop(0)
-        return simulate_fight(player1, player2)
+        fight_result = simulate_fight(player1, player2)
+        
+        # Speichere das Kampfergebnis in einer globalen Variable
+        global current_fight_results
+        current_fight_results = {
+            str(player1['gladiator_id']): fight_result,
+            str(player2['gladiator_id']): fight_result
+        }
+        
+        return fight_result
     else:
         return {
             'status': 'waiting',
             'message': 'Warte auf einen Gegner...',
             'gladiator': player
         }
+
+def check_fight_status(request):
+    gladiator_id = request.get('gladiator_id')
+    
+    # Prüfe zuerst, ob ein Kampfergebnis vorliegt
+    if str(gladiator_id) in current_fight_results:
+        result = current_fight_results[str(gladiator_id)]
+        # Lösche das Ergebnis nach dem Abrufen
+        del current_fight_results[str(gladiator_id)]
+        return result
+    
+    # Suche nach einem laufenden Kampf mit diesem Gladiator
+    for player in waiting_players:
+        if player['gladiator_id'] == gladiator_id:
+            return {'status': 'waiting'}
+    
+    return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
+
+# Globale Variable für Kampfergebnisse
+current_fight_results = {}
 
 def simulate_fight(player1, player2):
     # Kampfprotokoll für detaillierte Ausgabe
@@ -350,21 +379,6 @@ def simulate_fight(player1, player2):
         'loser': loser,
         'fight_log': fight_log
     }
-
-def check_fight_status(request):
-    gladiator_id = request.get('gladiator_id')
-    
-    # Suche nach einem laufenden Kampf mit diesem Gladiator
-    for i, player in enumerate(waiting_players):
-        if player['gladiator_id'] == gladiator_id:
-            # Wenn dieser Spieler der erste in der Warteschlange ist und es einen zweiten gibt
-            if i == 0 and len(waiting_players) >= 2:
-                player1 = waiting_players.pop(0)
-                player2 = waiting_players.pop(0)
-                return simulate_fight(player1, player2)
-            return {'status': 'waiting'}
-    
-    return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
 
 def cancel_fight(request):
     gladiator_id = request.get('gladiator_id')
