@@ -234,6 +234,12 @@ def join_fight(request):
         'ausdauer': gladiator[6]
     }
     
+    # Prüfe zuerst, ob bereits ein Kampfergebnis vorliegt
+    if str(gladiator_id) in current_fight_results:
+        result = current_fight_results[str(gladiator_id)]
+        del current_fight_results[str(gladiator_id)]
+        return result
+    
     # Füge den Spieler zur Warteliste hinzu
     waiting_players.append(player)
     
@@ -250,13 +256,17 @@ def join_fight(request):
             str(player2['gladiator_id']): fight_result
         }
         
-        return fight_result
-    else:
-        return {
-            'status': 'waiting',
-            'message': 'Warte auf einen Gegner...',
-            'gladiator': player
-        }
+        # Lösche das Ergebnis für den aktuellen Spieler
+        if str(gladiator_id) in current_fight_results:
+            result = current_fight_results[str(gladiator_id)]
+            del current_fight_results[str(gladiator_id)]
+            return result
+    
+    return {
+        'status': 'waiting',
+        'message': 'Warte auf einen Gegner...',
+        'gladiator': player
+    }
 
 def check_fight_status(request):
     gladiator_id = request.get('gladiator_id')
@@ -387,6 +397,9 @@ def cancel_fight(request):
     for i, player in enumerate(waiting_players):
         if player['gladiator_id'] == gladiator_id:
             waiting_players.pop(i)
+            # Lösche auch eventuell vorhandene Kampfergebnisse
+            if str(gladiator_id) in current_fight_results:
+                del current_fight_results[str(gladiator_id)]
             return {'status': 'success', 'message': 'Kampf abgebrochen'}
     
     return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
