@@ -8,9 +8,6 @@ from LoginScreen import LoginScreen
 from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
 import os
- 
-SERVER_IP = "maglev.proxy.rlwy.net"
-SERVER_PORT = 44200
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
@@ -18,11 +15,11 @@ pygame.display.set_caption("Gladiatoren Spiel")
 font = pygame.font.SysFont(None, 36)
 
 pygame.mixer.init()
-music_on = True
+music_on = False
 try:
     pygame.mixer.music.load("music/mygladiator.mp3")  # Hier ggf. anpassen – falls andere Musikdatei genutzt wird
     pygame.mixer.music.set_volume(0.3)
-    pygame.mixer.music.play(-1)
+    # Musik wird nicht automatisch gestartet
 except Exception as e:
     print("Fehler beim Laden der Hintergrundmusik:", e)
 
@@ -151,89 +148,61 @@ def gladiator_screen(user_id):
 
 def fight_setup_screen(user_id):
     clock = pygame.time.Clock()
-    selected_gladiator_id = None
-    bet_amount_str = ""
-    active_field = "bet"
-    input_rect_bet = pygame.Rect(300,450,200,40)
-    button_rect_start = pygame.Rect(300,500,200,50)
-    button_rect_back = pygame.Rect(300,560,200,50)
-    def fetch_gladiators():
-        req = {'command': 'get_gladiators', 'user_id': user_id}
-        response = send_request(req)
-        if response and response.get('status') == 'success':
-            return response.get('gladiators', [])
-        else:
-            return []
-    gladiators = fetch_gladiators()
-    gladiator_rects = []
-    start_y = 60
-    for i, g in enumerate(gladiators):
-        rect = pygame.Rect(50, start_y + i*40, 700, 30)
-        gladiator_rects.append((rect, g))
+    screen.fill((0, 0, 0))
+    
+    # Hole die Liste der Gladiatoren
+    response = send_request({
+        'command': 'get_gladiators',
+        'user_id': user_id
+    })
+    
+    if response and response.get('status') == 'success':
+        gladiators = response['gladiators']
+        y_pos = 50
+        for g in gladiators:
+            # Zeige Gladiator-Info
+            text = font.render(
+                f"ID: {g['id']} - {g['name']} ({g['gladiator_type']}) | "
+                f"LP: {g['lebenspunkte']}, A: {g['angriff']}, "
+                f"V: {g['verteidigung']}, E: {g['ausdauer']}", 
+                True, (255,255,255)
+            )
+            screen.blit(text, (50, y_pos))
+            
+            # Kampf-Button für jeden Gladiator
+            fight_button_rect = pygame.Rect(600, y_pos, 100, 30)
+            draw_button_wrapper("Kämpfen", fight_button_rect)
+            
+            # Speichere Gladiator-ID für den Button
+            g['button_rect'] = fight_button_rect
+            
+            y_pos += 40
+    
+    # Zurück-Button
+    back_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
+    draw_button_wrapper("Zurück", back_button_rect)
+    
+    pygame.display.flip()
+    
+    # Event-Loop
     while True:
-        screen.fill((50,50,80))
-        title = font.render("Kampf vorbereiten", True, (255,255,255))
-        screen.blit(title, (300,20))
-        for rect, g in gladiator_rects:
-            if selected_gladiator_id == g['id']:
-                pygame.draw.rect(screen, (0,255,0), rect)
-            else:
-                pygame.draw.rect(screen, (100,100,100), rect)
-            text = font.render(f"ID: {g['id']} - {g['name']} (Str: {g['staerke']}, Agil: {g['agilitaet']})", True, (255,255,255))
-            screen.blit(text, (rect.x+5, rect.y+5))
-        prompt = font.render("Wetteinsatz:", True, (255,255,255))
-        screen.blit(prompt, (300,420))
-        pygame.draw.rect(screen, (255,255,255), input_rect_bet, 2)
-        bet_text = font.render(bet_amount_str, True, (255,255,255))
-        screen.blit(bet_text, (input_rect_bet.x+5, input_rect_bet.y+5))
-        draw_button_wrapper("Kampf starten", button_rect_start)
-        draw_button_wrapper("Zurück", button_rect_back)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit()
+                sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = event.pos
-                for rect, g in gladiator_rects:
-                    if rect.collidepoint(mouse_pos):
-                        selected_gladiator_id = g['id']
-                if input_rect_bet.collidepoint(mouse_pos):
-                    active_field = "bet"
-                elif button_rect_start.collidepoint(mouse_pos):
-                    if selected_gladiator_id is None:
-                        print("Kein Gladiator ausgewählt!")
-                    else:
-                        try:
-                            bet_amount = int(bet_amount_str)
-                        except ValueError:
-                            print("Ungültiger Wetteinsatz!")
-                            continue
-                        req = {
-                            'command': 'join_fight',
-                            'user_id': user_id,
-                            'gladiator_id': selected_gladiator_id,
-                            'bet_amount': bet_amount
-                        }
-                        response = send_request(req)
-                        if response:
-                            if response.get('status') == 'waiting':
-                                print("Warte auf einen Gegner...")
-                            elif response.get('status') == 'success':
-                                print("Kampf beendet. Gewinner User ID:", response.get('winner'), "Pot:", response.get('pot'))
-                            else:
-                                print("Fehler:", response.get('message'))
-                        else:
-                            print("Keine Antwort vom Server")
-                elif button_rect_back.collidepoint(mouse_pos):
+                # Prüfe Zurück-Button
+                if back_button_rect.collidepoint(mouse_pos):
                     return
-            if event.type == pygame.KEYDOWN:
-                if active_field == "bet":
-                    if event.key == pygame.K_BACKSPACE:
-                        bet_amount_str = bet_amount_str[:-1]
-                    elif event.key == pygame.K_RETURN:
-                        pass
-                    else:
-                        bet_amount_str += event.unicode
-        pygame.display.flip()
+                
+                # Prüfe Kampf-Buttons
+                if response and response.get('status') == 'success':
+                    for g in gladiators:
+                        if g['button_rect'].collidepoint(mouse_pos):
+                            join_fight(user_id, g['id'])
+                            return
+        
         clock.tick(30)
 
 def main_menu(user_id, username, currency):
@@ -262,6 +231,179 @@ def main_menu(user_id, username, currency):
             elif music_button.handle_event(event):
                 toggle_music()
         pygame.display.flip()
+        clock.tick(30)
+
+def join_fight(user_id, gladiator_id):
+    response = send_request({
+        'command': 'join_fight',
+        'user_id': user_id,
+        'gladiator_id': gladiator_id
+    })
+    
+    print("Join Fight Response:", response)  # Debug-Ausgabe
+    
+    if response:
+        if response.get('status') == 'waiting':
+            # Zeige Warteschirm an
+            show_waiting_screen(response['gladiator'])
+        elif response.get('status') == 'success':
+            # Zeige Kampfergebnis an
+            show_fight_result(response)
+        else:
+            print("Fehler beim Kampfbeitritt:", response.get('message'))  # Debug-Ausgabe
+
+def show_waiting_screen(gladiator):
+    clock = pygame.time.Clock()
+    
+    # Timer für die Kampfabfrage
+    last_check = pygame.time.get_ticks()
+    check_interval = 1000  # Prüfe jede Sekunde
+    
+    while True:
+        screen.fill((0, 0, 0))
+        
+        # Zeige Gladiator-Info
+        text = font.render(
+            f"Warte auf Gegner mit {gladiator['gladiator_name']} ({gladiator['gladiator_type']})",
+            True, (255, 255, 255)
+        )
+        screen.blit(text, (50, 50))
+        
+        # Zeige Stats
+        stats_text = font.render(
+            f"LP: {gladiator['lebenspunkte']}, A: {gladiator['angriff']}, "
+            f"V: {gladiator['verteidigung']}, E: {gladiator['ausdauer']}",
+            True, (255, 255, 255)
+        )
+        screen.blit(stats_text, (50, 100))
+        
+        # Abbrechen-Button
+        cancel_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
+        draw_button_wrapper("Abbrechen", cancel_button_rect)
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Prüfe regelmäßig, ob ein Kampf begonnen hat
+        if current_time - last_check >= check_interval:
+            try:
+                # Sende eine Anfrage, um den Kampfstatus zu prüfen
+                response = send_request({
+                    'command': 'check_fight_status',
+                    'gladiator_id': gladiator['gladiator_id']
+                })
+                
+                print("Kampfstatus Response:", response)  # Debug-Ausgabe
+                
+                if response:
+                    if response.get('status') == 'success':
+                        # Wenn ein Kampf gefunden wurde, zeige das Ergebnis an
+                        print("Kampf gefunden, zeige Ergebnis")  # Debug-Ausgabe
+                        show_fight_result(response)
+                        return
+                    elif response.get('status') == 'error':
+                        # Bei Fehler zurück zum Hauptmenü
+                        error_text = font.render(response.get('message', 'Fehler aufgetreten'), True, (255, 0, 0))
+                        screen.blit(error_text, (50, 150))
+                        pygame.display.flip()
+                        pygame.time.wait(2000)  # Zeige Fehlermeldung für 2 Sekunden
+                        return
+                    # Bei 'waiting' Status weiterwarten
+            except Exception as e:
+                print("Fehler beim Prüfen des Kampfstatus:", e)
+                error_text = font.render("Verbindungsfehler, versuche erneut...", True, (255, 0, 0))
+                screen.blit(error_text, (50, 150))
+                pygame.display.flip()
+                pygame.time.wait(1000)  # Warte eine Sekunde vor dem nächsten Versuch
+                    
+            last_check = current_time
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if cancel_button_rect.collidepoint(event.pos):
+                    # Sende eine Anfrage, um das Warten abzubrechen
+                    try:
+                        send_request({
+                            'command': 'cancel_fight',
+                            'gladiator_id': gladiator['gladiator_id']
+                        })
+                    except Exception as e:
+                        print("Fehler beim Abbrechen des Kampfes:", e)
+                    return
+        
+        pygame.display.flip()
+        clock.tick(30)
+
+def show_fight_result(result):
+    print("Zeige Kampfergebnis:", result)  # Debug-Ausgabe
+    
+    clock = pygame.time.Clock()
+    scroll_offset = 0
+    max_scroll = 0
+    
+    # Erstelle ein detailliertes Kampflog, wenn keines vorhanden ist
+    if not result.get('fight_log'):
+        winner = result.get('winner', {})
+        loser = result.get('loser', {})
+        result['fight_log'] = [
+            f"Kampf zwischen {winner.get('gladiator_name')} und {loser.get('gladiator_name')}",
+            f"",
+            f"{winner.get('gladiator_name')} ({winner.get('gladiator_type')})",
+            f"LP: {winner.get('lebenspunkte')}, A: {winner.get('angriff')}, V: {winner.get('verteidigung')}, E: {winner.get('ausdauer')}",
+            f"",
+            f"{loser.get('gladiator_name')} ({loser.get('gladiator_type')})",
+            f"LP: {loser.get('lebenspunkte')}, A: {loser.get('angriff')}, V: {loser.get('verteidigung')}, E: {loser.get('ausdauer')}",
+            f"",
+            result.get('message', 'Kampf beendet!')
+        ]
+    
+    while True:
+        screen.fill((0, 0, 0))
+        
+        # Zeige Kampfergebnis
+        title = font.render(result.get('message', 'Kampf beendet!'), True, (255, 255, 255))
+        screen.blit(title, (50, 50))
+        
+        # Zeige Kampfprotokoll
+        y_pos = 100 - scroll_offset
+        if result.get('fight_log'):
+            for log_entry in result['fight_log']:
+                if y_pos >= 100 and y_pos < screen.get_height() - 100:  # Nur sichtbare Einträge rendern
+                    text = font.render(str(log_entry), True, (255, 255, 255))
+                    screen.blit(text, (50, y_pos))
+                y_pos += 30
+            
+            # Aktualisiere maximalen Scroll-Wert
+            max_scroll = max(0, len(result['fight_log']) * 30 - (screen.get_height() - 200))
+        else:
+            text = font.render("Kein Kampfprotokoll verfügbar", True, (255, 255, 255))
+            screen.blit(text, (50, y_pos))
+        
+        # Zurück-Button
+        back_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
+        draw_button_wrapper("Zurück", back_button_rect)
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # Mausrad hoch
+                    scroll_offset = max(0, scroll_offset - 30)
+                elif event.button == 5:  # Mausrad runter
+                    scroll_offset = min(max_scroll, scroll_offset + 30)
+                elif back_button_rect.collidepoint(event.pos):
+                    return
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    scroll_offset = max(0, scroll_offset - 30)
+                elif event.key == pygame.K_DOWN:
+                    scroll_offset = min(max_scroll, scroll_offset + 30)
+                    
         clock.tick(30)
 
 def main():

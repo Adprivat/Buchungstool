@@ -1,108 +1,60 @@
 from dataclasses import dataclass
 from typing import List, Dict
 
-@dataclass
 class GladiatorType:
-    name: str
-    description: str
-    advantages: List[str]
-    disadvantages: List[str]
-    modifiers: Dict[str, int]
-    special_ability: str
+    def __init__(self, name, modifiers, strengths, weaknesses):
+        self.name = name
+        self.modifiers = modifiers
+        self.strengths = strengths
+        self.weaknesses = weaknesses
 
 # Basislebenspunkte für alle Gladiatoren
 BASE_LP = 100
 
 # Definition der Gladiator‑Arten
 gladiator_types = {
-    "Retiarius": GladiatorType(
-        name="Retiarius",
-        description=(
-            "Netzkämpfer – Leicht bewaffnet mit Netz, Dreizack und Dolch. "
-            "Kein Helm, nur Schulter- und Armschutz."
-        ),
-        advantages=["Schnell", "Wendig", "Kann Gegner mit dem Netz fangen und aus der Distanz angreifen"],
-        disadvantages=["Wenig Schutz", "Anfällig gegen schwerere Gegner"],
-        modifiers={"Agilität": 3, "Präzision": 2, "Konstitution": -1, "Grundrüstung": -2},
-        special_ability=(
-            "Netzwurf – Wirft das Netz, um den Gegner für eine Runde bewegungsunfähig zu machen "
-            "(Wurf auf Präzision gegen die Agilität des Gegners)."
-        )
+    "Murmillo": GladiatorType(
+        "Murmillo",
+        {"angriff": -1, "verteidigung": 2, "ausdauer": 1},
+        "Sehr gute Verteidigung, solide Ausdauer",
+        "Geringere Angriffseffektivität"
     ),
     "Secutor": GladiatorType(
-        name="Secutor",
-        description=(
-            "Verfolger – Schwer gepanzert mit großem Schild, Gladius (Kurzschwert) und Helm mit Sehschlitzen."
-        ),
-        advantages=["Stark gepanzert", "Guter Nahkämpfer"],
-        disadvantages=["Langsam", "Eingeschränkte Sicht durch Helm"],
-        modifiers={"Konstitution": 3, "Grundrüstung": 4, "Agilität": -1, "Präzision": -1},
-        special_ability=(
-            "Schildwall – Erhöht seine Grundrüstung für eine Runde, um sich vor einem starken Angriff zu schützen."
-        )
-    ),
-    "Murmillo": GladiatorType(
-        name="Murmillo",
-        description=(
-            "Fischhelm – Ähnlich dem Secutor, aber mit anderem Helmtyp und kleinerem Schild."
-        ),
-        advantages=["Gut gepanzert", "Vielseitig im Kampf"],
-        disadvantages=["Weniger Schutz als der Secutor, aber auch etwas wendiger"],
-        modifiers={"Stärke": 1, "Konstitution": 2, "Agilität": -1},
-        special_ability=(
-            "Hieb und Stoß – Führt eine Kombination aus einem kräftigen Hieb mit dem Gladius und einem schnellen Stoß aus, um den Gegner zu überraschen."
-        )
+        "Secutor",
+        {"angriff": 0, "verteidigung": 1, "ausdauer": 0},
+        "Gute Defensive, besonders gegen Netzkämpfer",
+        "Keine herausragende Offensivkraft"
     ),
     "Thraex": GladiatorType(
-        name="Thraex",
-        description=(
-            "Thraker – Leicht bewaffnet mit Sica (gebogenes Schwert), kleinem Schild und Helm mit hohem Kamm."
-        ),
-        advantages=["Schnell", "Wendig", "Guter Angreifer"],
-        disadvantages=["Wenig Schutz", "Anfällig gegen schwerere Gegner"],
-        modifiers={"Agilität": 2, "Stärke": 1, "Konstitution": -1, "Grundrüstung": -1},
-        special_ability=(
-            "Sichelhieb – Führt einen schnellen, seitlichen Hieb mit der Sica aus, der den Gegner bluten lässt "
-            "(zusätzlicher Blutungsschaden über Zeit)."
-        )
+        "Thraex",
+        {"angriff": 1, "verteidigung": -1, "ausdauer": 1},
+        "Schnelle und effektive Angriffe",
+        "Weniger Schutz durch kleines Schild"
     ),
     "Hoplomachus": GladiatorType(
-        name="Hoplomachus",
-        description=(
-            "Schwerbewaffneter – Schwer bewaffnet mit Speer, Gladius und kleinem rundem Schild."
-        ),
-        advantages=["Gute Reichweite mit dem Speer", "Stark im Nahkampf"],
-        disadvantages=["Weniger wendig als leichtere Klassen"],
-        modifiers={"Stärke": 2, "Ausdauer": 1, "Agilität": -1},
-        special_ability=(
-            "Speerstich – Führt einen kraftvollen Stich mit dem Speer aus, der den Gegner zurückstoßen kann."
-        )
+        "Hoplomachus",
+        {"angriff": 2, "verteidigung": -2, "ausdauer": 1},
+        "Hohe Angriffskraft durch Speer",
+        "Schwache Defensive durch kleines Schild"
     ),
     "Dimachaerus": GladiatorType(
-        name="Dimachaerus",
-        description=(
-            "Doppelkämpfer – Kämpfer, der zwei Schwerter oder Dolche gleichzeitig führt. Selten."
-        ),
-        advantages=["Sehr gefährlich im Nahkampf", "Unberechenbar"],
-        disadvantages=["Benötigt viel Übung", "Hoher Energieverbrauch"],
-        modifiers={"Stärke": 2, "Agilität": 1, "Konstitution": -1},
-        special_ability=(
-            "Doppelhieb – Führt zwei schnelle Hiebe mit den Schwertern gleichzeitig aus, die den Gegner überraschen und verwunden können."
-        )
+        "Dimachaerus",
+        {"angriff": 2, "verteidigung": -2, "ausdauer": 1},
+        "Sehr starker Angriff durch zwei Waffen",
+        "Kaum Schutz gegen Angriffe"
+    ),
+    "Retiarius": GladiatorType(
+        "Retiarius",
+        {"angriff": 1, "verteidigung": -3, "ausdauer": 2},
+        "Sehr beweglich, kann lange kämpfen",
+        "Extrem verwundbar bei direkten Angriffen"
     ),
     "Provocator": GladiatorType(
-        name="Provocator",
-        description=(
-            "Herausforderer – Mittelschwer bewaffnet mit Brustpanzer, Schild, Gladius und Helm."
-        ),
-        advantages=["Guter Kompromiss zwischen Schutz und Beweglichkeit"],
-        disadvantages=["Nicht so stark gepanzert wie schwere Klassen"],
-        modifiers={"Konstitution": 1, "Grundrüstung": 2, "Agilität": -1},
-        special_ability=(
-            "Provozieren – Versucht, den Gegner durch Spott oder Drohungen aus der Fassung zu bringen, was dessen "
-            "Agilität oder Angriffskraft für eine Runde verringern kann."
-        )
-    ),
+        "Provocator",
+        {"angriff": -1, "verteidigung": 2, "ausdauer": 0},
+        "Hohe Verteidigung durch Panzerung",
+        "Geringe Angriffsstärke"
+    )
 }
 
 def get_all_gladiator_types():
@@ -113,10 +65,8 @@ if __name__ == "__main__":
     # Zum Testen: Ausgabe aller Gladiator-Typen und deren Attribute
     for key, gladiator in gladiator_types.items():
         print(f"{gladiator.name}:")
-        print(f"  Beschreibung: {gladiator.description}")
-        print(f"  Vorteile: {', '.join(gladiator.advantages)}")
-        print(f"  Nachteile: {', '.join(gladiator.disadvantages)}")
+        print(f"  Vorteile: {gladiator.strengths}")
+        print(f"  Nachteile: {gladiator.weaknesses}")
         print(f"  Attributmodifikatoren: {gladiator.modifiers}")
-        print(f"  Spezialfähigkeit: {gladiator.special_ability}")
         print(f"  Basis LP: {BASE_LP}")
         print()
