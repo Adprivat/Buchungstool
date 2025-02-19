@@ -5,15 +5,7 @@ import json
 import random
 import mysql.connector
 import gladiator_types  # Enthält die Definitionen der Gladiator-Typen
-
-# MySQL-Datenbankkonfiguration (Beispiel: Railway)
-db_config = {
-    'host': 'switchback.proxy.rlwy.net',
-    'port': 12594,
-    'user': 'root',
-    'password': 'FLRaRUQZWQNtQgKCoVqqLeiEpFcrJFcr',
-    'database': 'railway'
-}
+from config import db_config, server_config
 
 # Verbindung zur MySQL-Datenbank herstellen
 db = mysql.connector.connect(**db_config)
@@ -262,10 +254,9 @@ def simulate_fight(player1, player2):
 
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Der Server lauscht auf allen Schnittstellen; Railway leitet dann den Traffic über den Proxy-Port weiter
-    server.bind(('0.0.0.0', 49461))
+    server.bind((server_config['host'], server_config['port']))
     server.listen(5)
-    print("Server gestartet und wartet auf Verbindungen...")
+    print(f"Server gestartet auf {server_config['host']}:{server_config['port']}")
     try:
         while True:
             client_socket, addr = server.accept()
