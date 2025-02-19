@@ -27,6 +27,7 @@ def setup_database():
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT,
             name VARCHAR(255),
+            gladiator_type VARCHAR(50),
             lebenspunkte INT NOT NULL DEFAULT 10,
             angriff INT NOT NULL DEFAULT 0,
             verteidigung INT NOT NULL DEFAULT 0,
@@ -44,6 +45,7 @@ def ensure_gladiator_table_columns():
     Falls nicht, werden sie mittels ALTER TABLE hinzugefügt.
     """
     expected_columns = {
+        "gladiator_type": "VARCHAR(50)",
         "lebenspunkte": "INT NOT NULL DEFAULT 10",
         "angriff": "INT NOT NULL DEFAULT 0",
         "verteidigung": "INT NOT NULL DEFAULT 0",
@@ -141,11 +143,12 @@ def recruit_gladiator(request):
             final_stats[stat] += mod
 
     cursor.execute('''
-        INSERT INTO gladiators (user_id, name, lebenspunkte, angriff, verteidigung, ausdauer)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO gladiators (user_id, name, gladiator_type, lebenspunkte, angriff, verteidigung, ausdauer)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
     ''', (
         user_id,
         name,
+        chosen_type,
         final_stats["lebenspunkte"],
         final_stats["angriff"],
         final_stats["verteidigung"],
@@ -170,17 +173,18 @@ def recruit_gladiator(request):
 
 def get_gladiators(request):
     user_id = request.get('user_id')
-    cursor.execute("SELECT id, name, lebenspunkte, angriff, verteidigung, ausdauer FROM gladiators WHERE user_id=%s", (user_id,))
+    cursor.execute("SELECT id, name, gladiator_type, lebenspunkte, angriff, verteidigung, ausdauer FROM gladiators WHERE user_id=%s", (user_id,))
     gladiators = cursor.fetchall()
     gladiator_list = []
     for g in gladiators:
         gladiator_list.append({
             'id': g[0],
             'name': g[1],
-            'lebenspunkte': g[2],
-            'angriff': g[3],
-            'verteidigung': g[4],
-            'ausdauer': g[5]
+            'gladiator_type': g[2],
+            'lebenspunkte': g[3],
+            'angriff': g[4],
+            'verteidigung': g[5],
+            'ausdauer': g[6]
         })
     return {'status': 'success', 'gladiators': gladiator_list}
 
@@ -203,7 +207,7 @@ def join_fight(request):
     
     # Prüfe, ob der Gladiator existiert und dem Benutzer gehört
     cursor.execute("""
-        SELECT id, name, lebenspunkte, angriff, verteidigung, ausdauer 
+        SELECT id, name, gladiator_type, lebenspunkte, angriff, verteidigung, ausdauer 
         FROM gladiators 
         WHERE id=%s AND user_id=%s
     """, (gladiator_id, user_id))
@@ -217,10 +221,11 @@ def join_fight(request):
         'user_id': user_id,
         'gladiator_id': gladiator_id,
         'gladiator_name': gladiator[1],
-        'lebenspunkte': gladiator[2],
-        'angriff': gladiator[3],
-        'verteidigung': gladiator[4],
-        'ausdauer': gladiator[5]
+        'gladiator_type': gladiator[2],
+        'lebenspunkte': gladiator[3],
+        'angriff': gladiator[4],
+        'verteidigung': gladiator[5],
+        'ausdauer': gladiator[6]
     }
     
     # Füge den Spieler zur Warteliste hinzu
