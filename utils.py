@@ -2,9 +2,15 @@ import pygame
 import socket
 import json
 import sys
+import os
+from dotenv import load_dotenv
 
-SERVER_IP = "maglev.proxy.rlwy.net"
-SERVER_PORT = 44200
+# Lade Umgebungsvariablen
+load_dotenv()
+
+# Client-Verbindungsdaten
+SERVER_IP = os.getenv('CLIENT_HOST', 'maglev.proxy.rlwy.net')
+SERVER_PORT = int(os.getenv('CLIENT_PORT', '44200'))
 
 music_on = True
 
