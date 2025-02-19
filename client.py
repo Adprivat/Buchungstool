@@ -288,24 +288,35 @@ def show_waiting_screen(gladiator):
         
         # Prüfe regelmäßig, ob ein Kampf begonnen hat
         if current_time - last_check >= check_interval:
-            # Sende eine Anfrage, um den Kampfstatus zu prüfen
-            response = send_request({
-                'command': 'check_fight_status',
-                'gladiator_id': gladiator['gladiator_id']
-            })
-            
-            print("Kampfstatus Response:", response)  # Debug-Ausgabe
-            
-            if response:
-                if response.get('status') == 'success':
-                    # Wenn ein Kampf gefunden wurde, zeige das Ergebnis an
-                    print("Kampf gefunden, zeige Ergebnis")  # Debug-Ausgabe
-                    show_fight_result(response)
-                    return
-                elif response.get('status') == 'error':
-                    # Bei Fehler zurück zum Hauptmenü
-                    return
-                # Bei 'waiting' Status weiterwarten
+            try:
+                # Sende eine Anfrage, um den Kampfstatus zu prüfen
+                response = send_request({
+                    'command': 'check_fight_status',
+                    'gladiator_id': gladiator['gladiator_id']
+                })
+                
+                print("Kampfstatus Response:", response)  # Debug-Ausgabe
+                
+                if response:
+                    if response.get('status') == 'success':
+                        # Wenn ein Kampf gefunden wurde, zeige das Ergebnis an
+                        print("Kampf gefunden, zeige Ergebnis")  # Debug-Ausgabe
+                        show_fight_result(response)
+                        return
+                    elif response.get('status') == 'error':
+                        # Bei Fehler zurück zum Hauptmenü
+                        error_text = font.render(response.get('message', 'Fehler aufgetreten'), True, (255, 0, 0))
+                        screen.blit(error_text, (50, 150))
+                        pygame.display.flip()
+                        pygame.time.wait(2000)  # Zeige Fehlermeldung für 2 Sekunden
+                        return
+                    # Bei 'waiting' Status weiterwarten
+            except Exception as e:
+                print("Fehler beim Prüfen des Kampfstatus:", e)
+                error_text = font.render("Verbindungsfehler, versuche erneut...", True, (255, 0, 0))
+                screen.blit(error_text, (50, 150))
+                pygame.display.flip()
+                pygame.time.wait(1000)  # Warte eine Sekunde vor dem nächsten Versuch
                     
             last_check = current_time
         
@@ -316,10 +327,13 @@ def show_waiting_screen(gladiator):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if cancel_button_rect.collidepoint(event.pos):
                     # Sende eine Anfrage, um das Warten abzubrechen
-                    send_request({
-                        'command': 'cancel_fight',
-                        'gladiator_id': gladiator['gladiator_id']
-                    })
+                    try:
+                        send_request({
+                            'command': 'cancel_fight',
+                            'gladiator_id': gladiator['gladiator_id']
+                        })
+                    except Exception as e:
+                        print("Fehler beim Abbrechen des Kampfes:", e)
                     return
         
         pygame.display.flip()
