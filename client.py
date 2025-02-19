@@ -12,7 +12,7 @@ import os
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Gladiatoren Spiel")
-font = pygame.font.SysFont(None, 36)
+font = pygame.font.SysFont('Arial Unicode MS', 36)
 
 pygame.mixer.init()
 music_on = False
@@ -280,6 +280,21 @@ def show_waiting_screen(gladiator):
         )
         screen.blit(stats_text, (50, 100))
         
+        # Zeige Warteschlangeninfo, falls vorhanden
+        if 'queue_info' in gladiator:
+            queue_info = gladiator['queue_info']
+            waiting_text = font.render(
+                f"Position in Warteschlange: {queue_info['position']} von {queue_info['total_waiting']}",
+                True, (200, 200, 200)
+            )
+            screen.blit(waiting_text, (50, 150))
+            
+            wait_time_text = font.render(
+                f"Geschätzte Wartezeit: {queue_info['estimated_wait']}",
+                True, (200, 200, 200)
+            )
+            screen.blit(wait_time_text, (50, 200))
+        
         # Abbrechen-Button
         cancel_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
         draw_button_wrapper("Abbrechen", cancel_button_rect)
@@ -346,21 +361,8 @@ def show_fight_result(result):
     scroll_offset = 0
     max_scroll = 0
     
-    # Erstelle ein detailliertes Kampflog, wenn keines vorhanden ist
-    if not result.get('fight_log'):
-        winner = result.get('winner', {})
-        loser = result.get('loser', {})
-        result['fight_log'] = [
-            f"Kampf zwischen {winner.get('gladiator_name')} und {loser.get('gladiator_name')}",
-            f"",
-            f"{winner.get('gladiator_name')} ({winner.get('gladiator_type')})",
-            f"LP: {winner.get('lebenspunkte')}, A: {winner.get('angriff')}, V: {winner.get('verteidigung')}, E: {winner.get('ausdauer')}",
-            f"",
-            f"{loser.get('gladiator_name')} ({loser.get('gladiator_type')})",
-            f"LP: {loser.get('lebenspunkte')}, A: {loser.get('angriff')}, V: {loser.get('verteidigung')}, E: {loser.get('ausdauer')}",
-            f"",
-            result.get('message', 'Kampf beendet!')
-        ]
+    # Nutze einen kleineren Font für das Kampflog
+    log_font = pygame.font.SysFont('Arial Unicode MS', 24)
     
     while True:
         screen.fill((0, 0, 0))
@@ -373,15 +375,31 @@ def show_fight_result(result):
         y_pos = 100 - scroll_offset
         if result.get('fight_log'):
             for log_entry in result['fight_log']:
-                if y_pos >= 100 and y_pos < screen.get_height() - 100:  # Nur sichtbare Einträge rendern
-                    text = font.render(str(log_entry), True, (255, 255, 255))
-                    screen.blit(text, (50, y_pos))
+                if y_pos >= 100 and y_pos < screen.get_height() - 100:
+                    # Teile lange Zeilen in mehrere Zeilen auf
+                    words = str(log_entry).split()
+                    line = ""
+                    for word in words:
+                        test_line = line + " " + word if line else word
+                        # Prüfe ob die Zeile zu lang wird
+                        if log_font.size(test_line)[0] > screen.get_width() - 100:
+                            if line:  # Rendere die aktuelle Zeile
+                                text = log_font.render(line, True, (255, 255, 255))
+                                screen.blit(text, (50, y_pos))
+                                y_pos += 30
+                            line = word
+                        else:
+                            line = test_line
+                    # Rendere die letzte Zeile
+                    if line:
+                        text = log_font.render(line, True, (255, 255, 255))
+                        screen.blit(text, (50, y_pos))
                 y_pos += 30
             
             # Aktualisiere maximalen Scroll-Wert
-            max_scroll = max(0, len(result['fight_log']) * 30 - (screen.get_height() - 200))
+            max_scroll = max(0, y_pos - (screen.get_height() - 100))
         else:
-            text = font.render("Kein Kampfprotokoll verfügbar", True, (255, 255, 255))
+            text = log_font.render("Kein Kampfprotokoll verfügbar", True, (255, 255, 255))
             screen.blit(text, (50, y_pos))
         
         # Zurück-Button

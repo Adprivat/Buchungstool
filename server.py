@@ -6,6 +6,7 @@ import random
 import mysql.connector
 import gladiator_types  # Enthält die Definitionen der Gladiator-Typen
 from config import db_config, server_config
+import time
 
 # Verbindung zur MySQL-Datenbank herstellen
 db = mysql.connector.connect(**db_config)
@@ -232,7 +233,8 @@ def join_fight(request):
         'lebenspunkte': gladiator[3],
         'angriff': gladiator[4],
         'verteidigung': gladiator[5],
-        'ausdauer': gladiator[6]
+        'ausdauer': gladiator[6],
+        'join_time': time.time()  # Speichere Beitrittszeit
     }
     
     # Prüfe zuerst, ob bereits ein Kampfergebnis vorliegt
@@ -246,6 +248,11 @@ def join_fight(request):
         if loser_id in current_fight_results:
             del current_fight_results[loser_id]
         return result
+    
+    # Entferne abgelaufene Wartende (nach 5 Minuten)
+    current_time = time.time()
+    waiting_players[:] = [p for p in waiting_players 
+                         if current_time - p.get('join_time', 0) < 300]
     
     # Entferne den Spieler aus der Warteschlange, falls er bereits wartet
     waiting_players[:] = [p for p in waiting_players if p['gladiator_id'] != gladiator_id]
@@ -267,10 +274,16 @@ def join_fight(request):
         
         return fight_result
     
+    # Gebe Informationen über die Warteschlange zurück
     return {
         'status': 'waiting',
         'message': 'Warte auf einen Gegner...',
-        'gladiator': player
+        'gladiator': player,
+        'queue_info': {
+            'position': len(waiting_players),
+            'total_waiting': len(waiting_players),
+            'estimated_wait': 'Weniger als 1 Minute' if len(waiting_players) <= 2 else f'Ca. {len(waiting_players) // 2} Minuten'
+        }
     }
 
 def check_fight_status(request):
@@ -319,13 +332,13 @@ def simulate_fight(player1, player2):
         attack_value = attack_roll + player1['angriff']
         if p1_current['ausdauer'] <= 0:
             attack_value -= 5
-            fight_log.append(f"💨 {player1['gladiator_name']} ist erschöpft (-5 auf Angriff)")
+            fight_log.append(f">> {player1['gladiator_name']} ist erschöpft (-5 auf Angriff)")
         
         # Berechne Verteidigungswert
         defense_value = defense_roll + player2['verteidigung']
         
-        fight_log.append(f"⚔️ {player1['gladiator_name']} greift an: {attack_roll}+{player1['angriff']} = {attack_value}")
-        fight_log.append(f"🛡️ {player2['gladiator_name']} verteidigt: {defense_roll}+{player2['verteidigung']} = {defense_value}")
+        fight_log.append(f"[A] {player1['gladiator_name']} greift an: {attack_roll}+{player1['angriff']} = {attack_value}")
+        fight_log.append(f"[V] {player2['gladiator_name']} verteidigt: {defense_roll}+{player2['verteidigung']} = {defense_value}")
         
         # Reduziere Ausdauer des Angreifers
         p1_current['ausdauer'] -= 1
@@ -334,9 +347,9 @@ def simulate_fight(player1, player2):
         if attack_value > defense_value:
             damage = attack_value - defense_value
             p2_current['lebenspunkte'] -= damage
-            fight_log.append(f"💥 Treffer! {player2['gladiator_name']} verliert {damage} Lebenspunkte")
+            fight_log.append(f">>> Treffer! {player2['gladiator_name']} verliert {damage} Lebenspunkte")
         else:
-            fight_log.append("✨ Verteidigung erfolgreich!")
+            fight_log.append("=== Verteidigung erfolgreich! ===")
         
         # Wenn Spieler 2 noch lebt, kontert er
         if p2_current['lebenspunkte'] > 0:
@@ -347,13 +360,13 @@ def simulate_fight(player1, player2):
             attack_value = attack_roll + player2['angriff']
             if p2_current['ausdauer'] <= 0:
                 attack_value -= 5
-                fight_log.append(f"💨 {player2['gladiator_name']} ist erschöpft (-5 auf Angriff)")
+                fight_log.append(f">> {player2['gladiator_name']} ist erschöpft (-5 auf Angriff)")
             
             # Berechne Verteidigungswert
             defense_value = defense_roll + player1['verteidigung']
             
-            fight_log.append(f"⚔️ {player2['gladiator_name']} greift an: {attack_roll}+{player2['angriff']} = {attack_value}")
-            fight_log.append(f"🛡️ {player1['gladiator_name']} verteidigt: {defense_roll}+{player1['verteidigung']} = {defense_value}")
+            fight_log.append(f"[A] {player2['gladiator_name']} greift an: {attack_roll}+{player2['angriff']} = {attack_value}")
+            fight_log.append(f"[V] {player1['gladiator_name']} verteidigt: {defense_roll}+{player1['verteidigung']} = {defense_value}")
             
             # Reduziere Ausdauer des Angreifers
             p2_current['ausdauer'] -= 1
@@ -362,13 +375,13 @@ def simulate_fight(player1, player2):
             if attack_value > defense_value:
                 damage = attack_value - defense_value
                 p1_current['lebenspunkte'] -= damage
-                fight_log.append(f"💥 Treffer! {player1['gladiator_name']} verliert {damage} Lebenspunkte")
+                fight_log.append(f">>> Treffer! {player1['gladiator_name']} verliert {damage} Lebenspunkte")
             else:
-                fight_log.append("✨ Verteidigung erfolgreich!")
+                fight_log.append("=== Verteidigung erfolgreich! ===")
         
-        fight_log.append(f"\n📊 Status nach der Runde:")
-        fight_log.append(f"❤️ {player1['gladiator_name']}: LP={p1_current['lebenspunkte']}, AUS={p1_current['ausdauer']}")
-        fight_log.append(f"❤️ {player2['gladiator_name']}: LP={p2_current['lebenspunkte']}, AUS={p2_current['ausdauer']}\n")
+        fight_log.append(f"\n[STATUS] Runde beendet:")
+        fight_log.append(f"[HP] {player1['gladiator_name']}: LP={p1_current['lebenspunkte']}, AUS={p1_current['ausdauer']}")
+        fight_log.append(f"[HP] {player2['gladiator_name']}: LP={p2_current['lebenspunkte']}, AUS={p2_current['ausdauer']}\n")
     
     # Bestimme den Gewinner und aktualisiere die Kampfwerte
     if p1_current['lebenspunkte'] > 0:
@@ -384,7 +397,7 @@ def simulate_fight(player1, player2):
     
     return {
         'status': 'success',
-        'message': f"Kampf beendet! 🏆 {winner['gladiator_name']} hat gewonnen!",
+        'message': f"Kampf beendet! ** {winner['gladiator_name']} hat gewonnen! **",
         'winner': winner,
         'loser': loser,
         'fight_log': fight_log
