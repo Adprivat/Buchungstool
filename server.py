@@ -96,6 +96,10 @@ def process_request(request):
         return join_fight(request)
     elif command == 'get_gladiators':
         return get_gladiators(request)
+    elif command == 'check_fight_status':
+        return check_fight_status(request)
+    elif command == 'cancel_fight':
+        return cancel_fight(request)
     else:
         return {'status': 'error', 'message': 'Unbekannter Befehl'}
 
@@ -346,6 +350,32 @@ def simulate_fight(player1, player2):
         'loser': loser,
         'fight_log': fight_log
     }
+
+def check_fight_status(request):
+    gladiator_id = request.get('gladiator_id')
+    
+    # Suche nach einem laufenden Kampf mit diesem Gladiator
+    for i, player in enumerate(waiting_players):
+        if player['gladiator_id'] == gladiator_id:
+            # Wenn dieser Spieler der erste in der Warteschlange ist und es einen zweiten gibt
+            if i == 0 and len(waiting_players) >= 2:
+                player1 = waiting_players.pop(0)
+                player2 = waiting_players.pop(0)
+                return simulate_fight(player1, player2)
+            return {'status': 'waiting'}
+    
+    return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
+
+def cancel_fight(request):
+    gladiator_id = request.get('gladiator_id')
+    
+    # Entferne den Spieler aus der Warteschlange
+    for i, player in enumerate(waiting_players):
+        if player['gladiator_id'] == gladiator_id:
+            waiting_players.pop(i)
+            return {'status': 'success', 'message': 'Kampf abgebrochen'}
+    
+    return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
 
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
