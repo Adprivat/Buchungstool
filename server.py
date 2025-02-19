@@ -358,9 +358,17 @@ def simulate_fight(player1, player2):
         fight_log.append(f"{player1['gladiator_name']}: LP={p1_current['lebenspunkte']}, AUS={p1_current['ausdauer']}")
         fight_log.append(f"{player2['gladiator_name']}: LP={p2_current['lebenspunkte']}, AUS={p2_current['ausdauer']}\n")
     
-    # Bestimme den Gewinner
-    winner = player1 if p1_current['lebenspunkte'] > 0 else player2
-    loser = player2 if p1_current['lebenspunkte'] > 0 else player1
+    # Bestimme den Gewinner und aktualisiere die Kampfwerte
+    if p1_current['lebenspunkte'] > 0:
+        winner = player1.copy()
+        winner.update({'lebenspunkte': p1_current['lebenspunkte'], 'ausdauer': p1_current['ausdauer']})
+        loser = player2.copy()
+        loser.update({'lebenspunkte': p2_current['lebenspunkte'], 'ausdauer': p2_current['ausdauer']})
+    else:
+        winner = player2.copy()
+        winner.update({'lebenspunkte': p2_current['lebenspunkte'], 'ausdauer': p2_current['ausdauer']})
+        loser = player1.copy()
+        loser.update({'lebenspunkte': p1_current['lebenspunkte'], 'ausdauer': p1_current['ausdauer']})
     
     return {
         'status': 'success',
