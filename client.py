@@ -27,10 +27,6 @@ def draw_button_wrapper(text, rect, color=(70, 130, 180)):
     draw_button(screen, font, text, rect, color)
 
 def login_screen():
-    """
-    Zeigt den Login-Bildschirm an und verarbeitet die Login-Logik.
-    Gibt ein Tuple (user_id, username, currency) zurück.
-    """
     login_scr = LoginScreen(screen, font)
     while True:
         login_scr.draw()
@@ -42,10 +38,6 @@ def login_screen():
         login_scr.clock.tick(30)
 
 def get_currency(user_id):
-    """
-    Fragt den aktuellen Guthabenstand vom Server ab.
-    Erwartet eine Antwort wie: {"status": "success", "currency": <aktueller Wert>}
-    """
     response = send_request({'command': 'get_currency', 'user_id': user_id})
     if response and response.get('status') == 'success':
         return response.get('currency')
@@ -53,11 +45,8 @@ def get_currency(user_id):
 
 def gladiator_screen(user_id, currency):
     """
-    Zeigt die Gladiator-Verwaltung an.
-    Beim Betreten wird einmalig die aktuelle Gladiatorenliste vom Server abgefragt.
-    Während der Anzeige wird diese Liste nicht kontinuierlich aktualisiert.
-    Wird eine Aktion ausgeführt (z. B. Rekrutieren), wird die Liste danach manuell erneuert.
-    Gibt ggf. ein aktualisiertes Guthaben zurück.
+    Gladiator-Verwaltung: Beim Aufrufen wird die aktuelle Liste einmalig abgerufen.
+    Bei Aktionen (z. B. Rekrutieren) wird die Liste bei Bedarf aktualisiert.
     """
     clock = pygame.time.Clock()
     new_name = ""
@@ -72,7 +61,6 @@ def gladiator_screen(user_id, currency):
         frame_delay=100
     )
     
-    # Layout für Gladiator-Typen-Buttons
     margin = 50
     gap = 10
     button_width = 160
@@ -94,7 +82,6 @@ def gladiator_screen(user_id, currency):
     button_rect_back = pygame.Rect(50, y + button_height + 80, 200, 50)
     selected_type = None
 
-    # Einmaliger Abruf der Gladiatorenliste beim Betreten
     def fetch_gladiators():
         req = {'command': 'get_gladiators', 'user_id': user_id}
         response = send_request(req)
@@ -102,10 +89,9 @@ def gladiator_screen(user_id, currency):
             return response.get('gladiators', [])
         return []
     
-    gladiators = fetch_gladiators()  # einmaliger Abruf beim Aufrufen des Menüs
+    gladiators = fetch_gladiators()
 
     while True:
-        # Hier verwenden wir die einmal beim Eintritt abgerufene Liste
         background.update()
         background.draw(screen)
         
@@ -167,10 +153,7 @@ def gladiator_screen(user_id, currency):
                         }
                         response = send_request(req)
                         if response and response.get('status') == 'success':
-                            # Nach erfolgreicher Rekrutierung aktualisieren wir den Guthabenstand
                             currency = response.get('currency', currency)
-                            # Optional: Hier könnte man auch die Liste der Gladiatoren neu abrufen,
-                            # falls man den frisch rekrutierten Gladiator direkt sehen will.
                             gladiators = fetch_gladiators()
                             new_name = ""
                         else:
@@ -206,6 +189,9 @@ def gladiator_screen(user_id, currency):
 def fight_setup_screen(user_id):
     """
     Zeigt den Bildschirm zur Kampfvorbereitung an.
+    Zusätzlich gibt es ein Eingabefeld für den Wetteinsatz (nur ganze Zahlen).
+    Wird ein Kampfbutton geklickt, wird der eingegebene Wetteinsatz
+    zusammen mit der Gladiator-ID an den Server gesendet.
     """
     clock = pygame.time.Clock()
     background = AnimatedBackground(
@@ -216,7 +202,7 @@ def fight_setup_screen(user_id):
         frame_delay=100
     )
     
-    # Einmaliger Abruf der Gladiatorenliste beim Betreten
+    # Abruf der Gladiatorenliste (einmalig beim Betreten)
     response = send_request({'command': 'get_gladiators', 'user_id': user_id})
     if response and response.get('status') == 'success':
         gladiators = response['gladiators']
@@ -225,11 +211,22 @@ def fight_setup_screen(user_id):
             y_pos = 50 + (i * 70)
             fight_button = Fight_s_Button(pos=(600, y_pos))
             fight_buttons.append((fight_button, g))
+    else:
+        gladiators = []
+        fight_buttons = []
+    
+    # Eingabefeld für den Wetteinsatz (oben links)
+    input_rect_bet = pygame.Rect(50, 10, 100, 30)
+    bet_value = ""
+    active_field = None
+    
+    back_button_rect = pygame.Rect(50, screen.get_height()-50, 100, 30)
     
     while True:
         background.update()
         background.draw(screen)
         
+        # Zeichne alle Gladiatoren mit Fight-Buttons
         if response and response.get('status') == 'success':
             for i, (button, g) in enumerate(fight_buttons):
                 y_pos = 50 + (i * 70)
@@ -240,95 +237,54 @@ def fight_setup_screen(user_id):
                 screen.blit(text, (50, y_pos + 10))
                 button.draw(screen)
         
-        back_button_rect = pygame.Rect(50, screen.get_height() - 50, 100, 30)
+        # Zeichne das Eingabefeld für den Wetteinsatz
+        pygame.draw.rect(screen, (255, 255, 255), input_rect_bet, 2)
+        bet_text = font.render("Wette: " + (bet_value if bet_value != "" else "0"), True, (255,255,255))
+        screen.blit(bet_text, (input_rect_bet.x+5, input_rect_bet.y+5))
+        
+        # Zeichne den Zurück-Button
         draw_button_wrapper("Zurück", back_button_rect)
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
-            for button, gladiator in fight_buttons:
-                if button.handle_event(event):
-                    join_fight(user_id, gladiator['id'])
-                    return
+            # Eingabe im Wetteinsatzfeld
             if event.type == pygame.MOUSEBUTTONDOWN:
+                if input_rect_bet.collidepoint(event.pos):
+                    active_field = "bet"
+                else:
+                    active_field = None
+                # Prüfe, ob ein Fight-Button geklickt wurde
+                for button, g in fight_buttons:
+                    if button.handle_event(event):
+                        try:
+                            bet_int = int(bet_value) if bet_value != "" else 0
+                        except:
+                            bet_int = 0
+                        join_fight(user_id, g['id'], bet_int)
+                        return
                 if back_button_rect.collidepoint(event.pos):
                     return
-        
+            if event.type == pygame.KEYDOWN:
+                if active_field == "bet":
+                    if event.key == pygame.K_BACKSPACE:
+                        bet_value = bet_value[:-1]
+                    elif event.key == pygame.K_RETURN:
+                        pass
+                    else:
+                        if event.unicode.isdigit():
+                            bet_value += event.unicode
         pygame.display.flip()
         clock.tick(30)
 
-def main_menu(user_id, username, currency):
-    """
-    Zeigt das Hauptmenü an.
-    Beim Betreten wird der aktuelle Guthabenstand einmalig aus der Datenbank abgefragt.
-    Danach werden die angezeigten Daten im Menü nicht kontinuierlich aktualisiert.
-    """
-    currency = get_currency(user_id)
-    
-    clock = pygame.time.Clock()
-    music_button = MusicButton(pos=(690, 10))
-    fight_button = FightButton(pos=(400, 320))
-    gladiator_button = GladiatorButton(pos=(200, 320))
-    
-    background = AnimatedBackground(
-        'assets/LoginBackground',
-        'ezgif-frame-{:03d}.png',
-        28,
-        target_size=(800, 600),
-        frame_delay=100
-    )
-    
-    title_frames = []
-    for i in range(8):
-        frame = pygame.image.load(os.path.join('assets/titel_Hauptmenu', f'sprite_{i}.png')).convert_alpha()
-        title_frames.append(frame)
-    current_title_frame = 0
-    title_frame_delay = 150
-    last_title_update = pygame.time.get_ticks()
-    
-    while True:
-        background.update()
-        background.draw(screen)
-        
-        now = pygame.time.get_ticks()
-        if now - last_title_update > title_frame_delay:
-            current_title_frame = (current_title_frame + 1) % len(title_frames)
-            last_title_update = now
-        
-        title_frame = title_frames[current_title_frame]
-        title_rect = title_frame.get_rect(center=(400, 100))
-        screen.blit(title_frame, title_rect)
-        
-        info = font.render(f"User: {username} | Guthaben: {currency}", True, (255, 255, 255))
-        screen.blit(info, (250, 270))
-        
-        gladiator_button.draw(screen)
-        fight_button.draw(screen)
-        music_button.draw(screen, font)
-        
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-            if gladiator_button.handle_event(event):
-                currency = gladiator_screen(user_id, currency)
-                currency = get_currency(user_id)
-            elif fight_button.handle_event(event):
-                fight_setup_screen(user_id)
-                currency = get_currency(user_id)
-            elif music_button.handle_event(event):
-                toggle_music()
-        
-        pygame.display.flip()
-        clock.tick(30)
-
-def join_fight(user_id, gladiator_id):
-    print(f"Versuche Kampf beizutreten mit Gladiator ID: {gladiator_id}")
-    response = send_request({
+def join_fight(user_id, gladiator_id, bet=0):
+    request = {
         'command': 'join_fight',
         'user_id': user_id,
-        'gladiator_id': gladiator_id
-    })
-    print("Server Antwort:", response)
+        'gladiator_id': gladiator_id,
+        'bet': bet
+    }
+    response = send_request(request)
     if response:
         if response.get('status') == 'waiting':
             gladiator_info = response.get('gladiator', {})
@@ -525,10 +481,6 @@ def main():
     main_menu(user_id, username, currency)
 
 def main_menu(user_id, username, currency):
-    """
-    Zeigt das Hauptmenü an. Beim Aufrufen wird der aktuelle Guthabenstand aus der Datenbank einmalig abgefragt.
-    Danach werden die Daten nicht mehr kontinuierlich aktualisiert.
-    """
     currency = get_currency(user_id)
     
     clock = pygame.time.Clock()
