@@ -10,6 +10,7 @@ import time
 
 # Verbindung zur MySQL-Datenbank herstellen
 db = mysql.connector.connect(**db_config)
+db.autocommit = True  # <-- Autocommit aktivieren, damit SELECTs immer den aktuellen Stand liefern
 cursor = db.cursor()
 
 # Globale Variablen
@@ -156,7 +157,6 @@ def recruit_gladiator(request):
     if chosen_type not in gladiator_types.gladiator_types:
         return {'status': 'error', 'message': 'Ungültiger Gladiator-Typ'}
     
-    # Prüfe, ob der Spieler genug Gold hat
     cursor.execute("SELECT currency FROM users WHERE id = %s", (user_id,))
     result = cursor.fetchone()
     if not result or result[0] < 100:
@@ -164,13 +164,10 @@ def recruit_gladiator(request):
     
     g_type = gladiator_types.gladiator_types[chosen_type]
     final_stats = BASE_STATS.copy()
-    
-    # Wende die Modifikatoren an
     for stat, mod in g_type.modifiers.items():
         if stat in final_stats:
             final_stats[stat] += mod
 
-    # Ziehe die Kosten ab
     cursor.execute("UPDATE users SET currency = currency - 100 WHERE id = %s", (user_id,))
     
     cursor.execute('''

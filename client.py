@@ -10,7 +10,7 @@ from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
 from animated_background import AnimatedBackground
 
-# Initialisierung von Pygame und Einstellung des Fensters
+# Initialisierung von Pygame und Einrichtung des Fensters
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Gladiator")
@@ -46,8 +46,7 @@ def login_screen():
 def get_currency(user_id):
     """
     Fragt den aktuellen Guthabenstand vom Server ab.
-    Erwartet eine Antwort wie:
-      {"status": "success", "currency": <aktueller Wert>}
+    Erwartet eine Antwort wie: {"status": "success", "currency": <aktueller Wert>}
     """
     response = send_request({'command': 'get_currency', 'user_id': user_id})
     if response and response.get('status') == 'success':
@@ -56,9 +55,9 @@ def get_currency(user_id):
 
 def gladiator_screen(user_id, currency):
     """
-    Zeigt die Gladiatorverwaltung an. In jedem Schleifendurchlauf wird
-    die aktuelle Gladiatorenliste vom Server abgefragt, sodass immer der
-    aktuelle Stand aus der Datenbank angezeigt wird.
+    Zeigt die Gladiatorverwaltung an. In jedem Schleifendurchlauf wird die
+    Gladiatorenliste aktuell vom Server abgefragt, sodass immer der in der
+    Datenbank gespeicherte Stand angezeigt wird.
     Gibt ggf. ein aktualisiertes Guthaben zurück.
     """
     clock = pygame.time.Clock()
@@ -74,6 +73,7 @@ def gladiator_screen(user_id, currency):
         frame_delay=100
     )
     
+    # Layout für Gladiator-Typen-Buttons
     margin = 50
     gap = 10
     button_width = 160
@@ -166,6 +166,7 @@ def gladiator_screen(user_id, currency):
                         }
                         response = send_request(req)
                         if response and response.get('status') == 'success':
+                            # Beim Rekrutieren wird der neue Guthabenstand zurückgegeben
                             currency = response.get('currency', currency)
                             new_name = ""
                         else:
@@ -253,9 +254,13 @@ def fight_setup_screen(user_id):
 
 def main_menu(user_id, username, currency):
     """
-    Zeigt das Hauptmenü an. In jeder Iteration der Schleife wird der aktuelle
-    Guthabenstand aus der Datenbank abgefragt – so wird immer der aktuelle Wert angezeigt.
+    Zeigt das Hauptmenü an. Beim Betreten des Hauptmenüs wird der aktuelle
+    Guthabenstand (currency) aus der Datenbank abgefragt – so wird immer der
+    in der DB gespeicherte Wert angezeigt.
     """
+    # Beim Start des Hauptmenüs den aktuellen Wert abfragen:
+    currency = get_currency(user_id)
+    
     clock = pygame.time.Clock()
     music_button = MusicButton(pos=(690, 10))
     fight_button = FightButton(pos=(400, 320))
@@ -276,15 +281,8 @@ def main_menu(user_id, username, currency):
     current_title_frame = 0
     title_frame_delay = 150
     last_title_update = pygame.time.get_ticks()
-    last_currency_update = 0
-    update_interval = 500  # Aktualisierung alle 500ms
     
     while True:
-        current_time = pygame.time.get_ticks()
-        if current_time - last_currency_update >= update_interval:
-            currency = get_currency(user_id)
-            last_currency_update = current_time
-        
         background.update()
         background.draw(screen)
         
@@ -308,9 +306,12 @@ def main_menu(user_id, username, currency):
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
             if gladiator_button.handle_event(event):
-                _ = gladiator_screen(user_id, currency)
+                # Nach Verlassen des Gladiator-Menüs erneut den aktuellen Stand abrufen
+                currency = gladiator_screen(user_id, currency)
+                currency = get_currency(user_id)
             elif fight_button.handle_event(event):
                 fight_setup_screen(user_id)
+                currency = get_currency(user_id)
             elif music_button.handle_event(event):
                 toggle_music()
         
@@ -356,7 +357,7 @@ def show_waiting_screen(gladiator):
         frame_delay=100
     )
     last_check = pygame.time.get_ticks()
-    check_interval = 1000
+    check_interval = 1000  # Eine Sekunde
     animation_dots = 0
     dot_update = pygame.time.get_ticks()
     
@@ -427,8 +428,7 @@ def show_waiting_screen(gladiator):
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                pygame.quit(); sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if cancel_button_rect.collidepoint(event.pos):
                     try:
@@ -511,8 +511,7 @@ def show_fight_result(result):
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                pygame.quit(); sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 4:
                     scroll_offset = max(0, scroll_offset - 30)
@@ -534,9 +533,11 @@ def main():
 
 def main_menu(user_id, username, currency):
     """
-    Zeigt das Hauptmenü an. In jeder Iteration wird der aktuelle Guthabenstand
-    aus der Datenbank abgefragt – so wird immer der in der DB gespeicherte Wert angezeigt.
+    Zeigt das Hauptmenü an. Beim Betreten wird der aktuelle Guthabenstand aus der DB abgefragt.
     """
+    # Aktualisiere den Kontostand beim Aufrufen des Hauptmenüs
+    currency = get_currency(user_id)
+    
     clock = pygame.time.Clock()
     music_button = MusicButton(pos=(690, 10))
     fight_button = FightButton(pos=(400, 320))
@@ -557,15 +558,8 @@ def main_menu(user_id, username, currency):
     current_title_frame = 0
     title_frame_delay = 150
     last_title_update = pygame.time.get_ticks()
-    last_currency_update = 0
-    update_interval = 500  # Aktualisierung alle 500ms
     
     while True:
-        current_time = pygame.time.get_ticks()
-        if current_time - last_currency_update >= update_interval:
-            currency = get_currency(user_id)
-            last_currency_update = current_time
-        
         background.update()
         background.draw(screen)
         
@@ -589,9 +583,12 @@ def main_menu(user_id, username, currency):
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
             if gladiator_button.handle_event(event):
-                _ = gladiator_screen(user_id, currency)
+                # Nach Verlassen des Gladiatorenmenüs wird erneut der aktuelle Stand abgefragt
+                currency = gladiator_screen(user_id, currency)
+                currency = get_currency(user_id)
             elif fight_button.handle_event(event):
                 fight_setup_screen(user_id)
+                currency = get_currency(user_id)
             elif music_button.handle_event(event):
                 toggle_music()
         
