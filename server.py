@@ -90,6 +90,8 @@ def process_request(request):
         return register_user(request)
     elif command == 'login':
         return login_user(request)
+    elif command == 'get_currency':  # Neuer Befehl
+        return get_currency_db(request)
     elif command == 'recruit_gladiator':
         return recruit_gladiator(request)
     elif command == 'place_bet':
@@ -126,7 +128,19 @@ def login_user(request):
     else:
         return {'status': 'error', 'message': 'Ungültige Anmeldedaten'}
 
-# Basiswerte für alle Gladiatoren (Standardwerte, die dann modifiziert werden)
+def get_currency_db(request):
+    """
+    Neuer Befehl: Liefert den aktuellen Guthabenstand des Nutzers.
+    """
+    user_id = request.get('user_id')
+    cursor.execute("SELECT currency FROM users WHERE id = %s", (user_id,))
+    result = cursor.fetchone()
+    if result:
+        return {'status': 'success', 'currency': result[0]}
+    else:
+        return {'status': 'error', 'message': 'Benutzer nicht gefunden'}
+
+# Basiswerte für alle Gladiatoren
 BASE_STATS = {
     "lebenspunkte": 10,
     "angriff": 10,
@@ -222,7 +236,6 @@ def join_fight(request):
     user_id = request.get('user_id')
     gladiator_id = request.get('gladiator_id')
     
-    # Prüfe, ob der Gladiator existiert und dem Benutzer gehört
     cursor.execute("""
         SELECT id, name, gladiator_type, lebenspunkte, angriff, verteidigung, ausdauer 
         FROM gladiators 
@@ -233,7 +246,6 @@ def join_fight(request):
     if not gladiator:
         return {'status': 'error', 'message': 'Gladiator nicht gefunden oder gehört nicht dir'}
     
-    # Erstelle ein Spieler-Objekt mit allen relevanten Informationen
     player = {
         'user_id': user_id,
         'gladiator_id': gladiator_id,
@@ -243,13 +255,11 @@ def join_fight(request):
         'angriff': gladiator[4],
         'verteidigung': gladiator[5],
         'ausdauer': gladiator[6],
-        'join_time': time.time()  # Speichere Beitrittszeit
+        'join_time': time.time()
     }
     
-    # Prüfe zuerst, ob bereits ein Kampfergebnis vorliegt
     if str(gladiator_id) in current_fight_results:
         result = current_fight_results[str(gladiator_id)]
-        # Lösche das Ergebnis für beide Gladiatoren
         winner_id = str(result['winner']['gladiator_id'])
         loser_id = str(result['loser']['gladiator_id'])
         if winner_id in current_fight_results:
@@ -258,32 +268,24 @@ def join_fight(request):
             del current_fight_results[loser_id]
         return result
     
-    # Entferne abgelaufene Wartende (nach 5 Minuten)
     current_time = time.time()
     waiting_players[:] = [p for p in waiting_players 
                          if current_time - p.get('join_time', 0) < 300]
     
-    # Entferne den Spieler aus der Warteschlange, falls er bereits wartet
     waiting_players[:] = [p for p in waiting_players if p['gladiator_id'] != gladiator_id]
-    
-    # Füge den Spieler zur Warteliste hinzu
     waiting_players.append(player)
     
-    # Wenn zwei Spieler warten, starte den Kampf
     if len(waiting_players) >= 2:
         player1 = waiting_players.pop(0)
         player2 = waiting_players.pop(0)
         
-        # Simuliere den Kampf
         fight_result = simulate_fight(player1, player2)
         
-        # Speichere das Kampfergebnis für beide Gladiatoren
         current_fight_results[str(player1['gladiator_id'])] = fight_result
         current_fight_results[str(player2['gladiator_id'])] = fight_result
         
         return fight_result
     
-    # Gebe Informationen über die Warteschlange zurück
     return {
         'status': 'waiting',
         'message': 'Warte auf einen Gegner...',
@@ -298,10 +300,8 @@ def join_fight(request):
 def check_fight_status(request):
     gladiator_id = request.get('gladiator_id')
     
-    # Prüfe zuerst, ob ein Kampfergebnis vorliegt
     if str(gladiator_id) in current_fight_results:
         result = current_fight_results[str(gladiator_id)]
-        # Lösche das Ergebnis für beide Gladiatoren
         winner_id = str(result['winner']['gladiator_id'])
         loser_id = str(result['loser']['gladiator_id'])
         if winner_id in current_fight_results:
@@ -310,7 +310,6 @@ def check_fight_status(request):
             del current_fight_results[loser_id]
         return result
     
-    # Suche nach einem laufenden Kampf mit diesem Gladiator
     for player in waiting_players:
         if player['gladiator_id'] == gladiator_id:
             return {'status': 'waiting'}
@@ -318,10 +317,8 @@ def check_fight_status(request):
     return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
 
 def simulate_fight(player1, player2):
-    # Kampfprotokoll für detaillierte Ausgabe
     fight_log = []
     
-    # Initialisiere aktuelle Werte für den Kampf
     p1_current = {
         'lebenspunkte': player1['lebenspunkte'],
         'ausdauer': player1['ausdauer']
@@ -331,28 +328,22 @@ def simulate_fight(player1, player2):
         'ausdauer': player2['ausdauer']
     }
     
-    # Kampfrunde
     while p1_current['lebenspunkte'] > 0 and p2_current['lebenspunkte'] > 0:
-        # Spieler 1 greift an
         attack_roll = random.randint(1, 20)
         defense_roll = random.randint(1, 20)
         
-        # Berechne Angriffswert (mit Ausdauer-Malus)
         attack_value = attack_roll + player1['angriff']
         if p1_current['ausdauer'] <= 0:
             attack_value -= 5
             fight_log.append(f">> {player1['gladiator_name']} ist erschöpft (-5 auf Angriff)")
         
-        # Berechne Verteidigungswert
         defense_value = defense_roll + player2['verteidigung']
         
         fight_log.append(f"[A] {player1['gladiator_name']} greift an: {attack_roll}+{player1['angriff']} = {attack_value}")
         fight_log.append(f"[V] {player2['gladiator_name']} verteidigt: {defense_roll}+{player2['verteidigung']} = {defense_value}")
         
-        # Reduziere Ausdauer des Angreifers
         p1_current['ausdauer'] -= 1
         
-        # Berechne Schaden
         if attack_value > defense_value:
             damage = attack_value - defense_value
             p2_current['lebenspunkte'] -= damage
@@ -360,27 +351,22 @@ def simulate_fight(player1, player2):
         else:
             fight_log.append("=== Verteidigung erfolgreich! ===")
         
-        # Wenn Spieler 2 noch lebt, kontert er
         if p2_current['lebenspunkte'] > 0:
             attack_roll = random.randint(1, 20)
             defense_roll = random.randint(1, 20)
             
-            # Berechne Angriffswert (mit Ausdauer-Malus)
             attack_value = attack_roll + player2['angriff']
             if p2_current['ausdauer'] <= 0:
                 attack_value -= 5
                 fight_log.append(f">> {player2['gladiator_name']} ist erschöpft (-5 auf Angriff)")
             
-            # Berechne Verteidigungswert
             defense_value = defense_roll + player1['verteidigung']
             
             fight_log.append(f"[A] {player2['gladiator_name']} greift an: {attack_roll}+{player2['angriff']} = {attack_value}")
             fight_log.append(f"[V] {player1['gladiator_name']} verteidigt: {defense_roll}+{player1['verteidigung']} = {defense_value}")
             
-            # Reduziere Ausdauer des Angreifers
             p2_current['ausdauer'] -= 1
             
-            # Berechne Schaden
             if attack_value > defense_value:
                 damage = attack_value - defense_value
                 p1_current['lebenspunkte'] -= damage
@@ -392,7 +378,6 @@ def simulate_fight(player1, player2):
         fight_log.append(f"[HP] {player1['gladiator_name']}: LP={p1_current['lebenspunkte']}, AUS={p1_current['ausdauer']}")
         fight_log.append(f"[HP] {player2['gladiator_name']}: LP={p2_current['lebenspunkte']}, AUS={p2_current['ausdauer']}\n")
     
-    # Bestimme den Gewinner und aktualisiere die Kampfwerte
     if p1_current['lebenspunkte'] > 0:
         winner = player1.copy()
         winner.update({'lebenspunkte': p1_current['lebenspunkte'], 'ausdauer': p1_current['ausdauer']})
@@ -415,11 +400,9 @@ def simulate_fight(player1, player2):
 def cancel_fight(request):
     gladiator_id = request.get('gladiator_id')
     
-    # Entferne den Spieler aus der Warteschlange
     for i, player in enumerate(waiting_players):
         if player['gladiator_id'] == gladiator_id:
             waiting_players.pop(i)
-            # Lösche auch eventuell vorhandene Kampfergebnisse
             if str(gladiator_id) in current_fight_results:
                 del current_fight_results[str(gladiator_id)]
             return {'status': 'success', 'message': 'Kampf abgebrochen'}

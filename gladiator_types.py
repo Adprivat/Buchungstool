@@ -9,7 +9,7 @@ class GladiatorType:
         self.weaknesses = weaknesses
 
 # Basislebenspunkte für alle Gladiatoren
-BASE_LP = 100
+BASE_LP = 10
 
 # Definition der Gladiator‑Arten
 gladiator_types = {
