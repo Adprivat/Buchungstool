@@ -119,9 +119,21 @@ def gladiator_screen(user_id, currency):
         
         prompt_name = font.render("Neuer Gladiator Name:", True, (255, 255, 255))
         screen.blit(prompt_name, (400, 445))
-        pygame.draw.rect(screen, (255, 255, 255), input_rect_newname, 2)
+        
+        # Zeichne das Eingabefeld mit unterschiedlichen Farben für aktiv/inaktiv
+        name_color = (255, 255, 0) if active_field == "new_name" else (255, 255, 255)
+        pygame.draw.rect(screen, name_color, input_rect_newname, 2)
         new_text = font.render(new_name, True, (255, 255, 255))
         screen.blit(new_text, (input_rect_newname.x + 5, input_rect_newname.y + 5))
+        
+        # Zeichne den blinkenden Cursor im aktiven Feld
+        if active_field == "new_name":
+            cursor_x = input_rect_newname.x + 5 + new_text.get_width()
+            cursor_y = input_rect_newname.y + 5
+            if (pygame.time.get_ticks() // 500) % 2:  # Blinken alle 500ms
+                pygame.draw.line(screen, (255, 255, 255),
+                               (cursor_x, cursor_y),
+                               (cursor_x, cursor_y + new_text.get_height()))
         
         draw_button_wrapper("Rekrutieren (100 Gold)", button_rect_recruit)
         draw_button_wrapper("Zurück", button_rect_back)
@@ -230,10 +242,21 @@ def fight_setup_screen(user_id):
                 screen.blit(text, (50, y_pos+10))
                 button.draw(screen)
         
-        pygame.draw.rect(screen, (255,255,255), input_rect_bet, 2)
+        # Zeichne das Wetteinsatz-Eingabefeld mit unterschiedlichen Farben für aktiv/inaktiv
+        bet_color = (255, 255, 0) if active_field == "bet" else (255, 255, 255)
+        pygame.draw.rect(screen, bet_color, input_rect_bet, 2)
         bet_text = font.render("Wette: " + (bet_value if bet_value != "" else "0"), True, (255,215,0))
         bet_rect = bet_text.get_rect(center=(input_rect_bet.centerx, input_rect_bet.centery))
         screen.blit(bet_text, bet_rect)
+        
+        # Zeichne den blinkenden Cursor im aktiven Feld
+        if active_field == "bet":
+            cursor_x = bet_rect.right + 5
+            cursor_y = bet_rect.y
+            if (pygame.time.get_ticks() // 500) % 2:  # Blinken alle 500ms
+                pygame.draw.line(screen, (255, 255, 255),
+                               (cursor_x, cursor_y),
+                               (cursor_x, cursor_y + bet_text.get_height()))
         
         draw_button_wrapper("Zurück", back_button_rect)
         
@@ -304,6 +327,8 @@ def show_waiting_screen(gladiator):
     check_interval = 1000
     animation_dots = 0
     dot_update = pygame.time.get_ticks()
+    message = ""
+    message_timer = 0
     
     while True:
         background.update()
@@ -334,6 +359,13 @@ def show_waiting_screen(gladiator):
             True, (255,255,255)
         )
         screen.blit(stats_text, (50,150))
+        
+        # Zeige Nachricht an
+        if message:
+            msg_surf = font.render(message, True, (255,215,0))
+            screen.blit(msg_surf, (50,200))
+            if pygame.time.get_ticks() - message_timer > 2000:  # Nachricht für 2 Sekunden anzeigen
+                return
         
         cancel_button_rect = pygame.Rect(50, screen.get_height()-50, 150, 40)
         shadow_rect = cancel_button_rect.copy()
@@ -376,10 +408,16 @@ def show_waiting_screen(gladiator):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if cancel_button_rect.collidepoint(event.pos):
                     try:
-                        send_request({'command': 'cancel_fight', 'gladiator_id': gladiator['gladiator_id']})
+                        response = send_request({'command': 'cancel_fight', 'gladiator_id': gladiator['gladiator_id']})
+                        if response and response.get('status') == 'success':
+                            message = response.get('message', 'Kampf abgebrochen')
+                            message_timer = pygame.time.get_ticks()
+                        else:
+                            message = "Fehler beim Abbrechen des Kampfes"
+                            message_timer = pygame.time.get_ticks()
                     except Exception as e:
                         print("Fehler beim Abbrechen des Kampfes:", e)
-                    return
+                        return
         
         pygame.display.flip()
         clock.tick(30)

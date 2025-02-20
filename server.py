@@ -389,10 +389,23 @@ def cancel_fight(request):
     gladiator_id = request.get('gladiator_id')
     for i, player in enumerate(waiting_players):
         if player['gladiator_id'] == gladiator_id:
-            waiting_players.pop(i)
+            # Hole den Spieler aus der Warteschlange
+            cancelled_player = waiting_players.pop(i)
+            
+            # Berechne die Rückerstattung (Eintrittsgebühr + Wetteinsatz)
+            refund_amount = 50 + cancelled_player.get('bet', 0)
+            
+            # Erstatte das Geld zurück
+            cursor.execute("UPDATE users SET currency = currency + %s WHERE id = %s", 
+                         (refund_amount, cancelled_player['user_id']))
+            db.commit()
+            
             if str(gladiator_id) in current_fight_results:
                 del current_fight_results[str(gladiator_id)]
-            return {'status': 'success', 'message': 'Kampf abgebrochen'}
+            return {
+                'status': 'success', 
+                'message': f'Kampf abgebrochen. {refund_amount} Gold wurde zurückerstattet.'
+            }
     return {'status': 'error', 'message': 'Gladiator nicht in der Warteschlange'}
 
 def start_server():

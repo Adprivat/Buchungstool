@@ -1,7 +1,7 @@
 import pygame
 import sys
 import os
-from utils import toggle_music, send_request, draw_button, music_on
+from utils import toggle_music, send_request, draw_button, music_on, resource_path
 from animated_background import AnimatedBackground
 
 class RegistrationScreen:
@@ -20,7 +20,7 @@ class RegistrationScreen:
         self.font = font
         # Initialisiere animierten Hintergrund
         self.background = AnimatedBackground(
-            'assets/LoginBackground',
+            resource_path('assets/LoginBackground'),
             'ezgif-frame-{:03d}.png',
             28,
             target_size=(800, 600),
