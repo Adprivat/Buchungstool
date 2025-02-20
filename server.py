@@ -8,9 +8,9 @@ import gladiator_types  # Enthält die Definitionen der Gladiator-Typen
 from config import db_config, server_config
 import time
 
-# Verbindung zur MySQL-Datenbank herstellen
+# Verbindung zur MySQL-Datenbank herstellen und Autocommit aktivieren
 db = mysql.connector.connect(**db_config)
-db.autocommit = True  # Damit SELECTs immer den aktuellen Stand liefern
+db.autocommit = True
 cursor = db.cursor()
 
 # Globale Variablen
@@ -230,7 +230,7 @@ def join_fight(request):
     if bet < 0:
         bet = 0
 
-    # Prüfe, ob der Spieler genügend Gold für die Eintrittsgebühr (50) plus den Wetteinsatz hat
+    # Prüfe, ob der Spieler genügend Gold für Eintritt (50) + Wetteinsatz hat
     cursor.execute("SELECT currency FROM users WHERE id=%s", (user_id,))
     result = cursor.fetchone()
     if not result or result[0] < (50 + bet):
@@ -279,12 +279,9 @@ def join_fight(request):
     if len(waiting_players) >= 2:
         player1 = waiting_players.pop(0)
         player2 = waiting_players.pop(0)
-        
         fight_result = simulate_fight(player1, player2)
-        
         current_fight_results[str(player1['gladiator_id'])] = fight_result
         current_fight_results[str(player2['gladiator_id'])] = fight_result
-        
         return fight_result
     
     return {
@@ -316,15 +313,8 @@ def check_fight_status(request):
 
 def simulate_fight(player1, player2):
     fight_log = []
-    
-    p1_current = {
-        'lebenspunkte': player1['lebenspunkte'],
-        'ausdauer': player1['ausdauer']
-    }
-    p2_current = {
-        'lebenspunkte': player2['lebenspunkte'],
-        'ausdauer': player2['ausdauer']
-    }
+    p1_current = {'lebenspunkte': player1['lebenspunkte'], 'ausdauer': player1['ausdauer']}
+    p2_current = {'lebenspunkte': player2['lebenspunkte'], 'ausdauer': player2['ausdauer']}
     
     while p1_current['lebenspunkte'] > 0 and p2_current['lebenspunkte'] > 0:
         attack_roll = random.randint(1, 20)
@@ -377,9 +367,8 @@ def simulate_fight(player1, player2):
         loser = player1.copy()
         loser.update({'lebenspunkte': p1_current['lebenspunkte'], 'ausdauer': p1_current['ausdauer']})
     
-    # Berechne den Gesamtpot: Eintrittsgebühr beider Spieler (50+50) plus beide Wetteinsätze.
+    # Gesamtpot berechnen: 50+50 Eintritt plus beide Wetteinsätze
     pot = 50 + 50 + player1.get('bet', 0) + player2.get('bet', 0)
-    # Dem Sieger wird der gesamte Pot ausgezahlt.
     cursor.execute("UPDATE users SET currency = currency + %s WHERE id = %s", (pot, winner['user_id']))
     db.commit()
     

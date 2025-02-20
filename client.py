@@ -45,7 +45,7 @@ def get_currency(user_id):
 
 def gladiator_screen(user_id, currency):
     """
-    Gladiator-Verwaltung: Beim Aufrufen wird die aktuelle Liste einmalig abgerufen.
+    Gladiator-Verwaltung: Beim Aufrufen wird die aktuelle Liste der Gladiatoren einmalig abgerufen.
     Bei Aktionen (z. B. Rekrutieren) wird die Liste bei Bedarf aktualisiert.
     """
     clock = pygame.time.Clock()
@@ -188,10 +188,9 @@ def gladiator_screen(user_id, currency):
 
 def fight_setup_screen(user_id):
     """
-    Zeigt den Bildschirm zur Kampfvorbereitung an.
+    Kampfvorbereitung: Beim Betreten wird die Gladiatorenliste einmalig abgerufen.
     Zusätzlich gibt es ein Eingabefeld für den Wetteinsatz (nur ganze Zahlen).
-    Wird ein Kampfbutton geklickt, wird der eingegebene Wetteinsatz
-    zusammen mit der Gladiator-ID an den Server gesendet.
+    Wenn ein Fight-Button gedrückt wird, wird join_fight mit Gladiator-ID und Wetteinsatz aufgerufen.
     """
     clock = pygame.time.Clock()
     background = AnimatedBackground(
@@ -202,7 +201,7 @@ def fight_setup_screen(user_id):
         frame_delay=100
     )
     
-    # Abruf der Gladiatorenliste (einmalig beim Betreten)
+    # Einmaliger Abruf der Gladiatorenliste
     response = send_request({'command': 'get_gladiators', 'user_id': user_id})
     if response and response.get('status') == 'success':
         gladiators = response['gladiators']
@@ -215,21 +214,20 @@ def fight_setup_screen(user_id):
         gladiators = []
         fight_buttons = []
     
-    # Eingabefeld für den Wetteinsatz (oben links)
+    # Eingabefeld für den Wetteinsatz (z.B. oben links)
     input_rect_bet = pygame.Rect(50, 10, 100, 30)
     bet_value = ""
     active_field = None
-    
     back_button_rect = pygame.Rect(50, screen.get_height()-50, 100, 30)
     
     while True:
         background.update()
         background.draw(screen)
         
-        # Zeichne alle Gladiatoren mit Fight-Buttons
+        # Zeichne die Gladiatoren mit Fight-Buttons
         if response and response.get('status') == 'success':
-            for i, (button, g) in enumerate(fight_buttons):
-                y_pos = 50 + (i * 70)
+            for button, g in fight_buttons:
+                y_pos = 50 + (fight_buttons.index((button, g)) * 70)
                 text = font.render(
                     f"{g['name']} ({g['gladiator_type']}) | LP: {g['lebenspunkte']}, A: {g['angriff']}, V: {g['verteidigung']}, E: {g['ausdauer']}",
                     True, (255, 255, 255)
@@ -242,19 +240,17 @@ def fight_setup_screen(user_id):
         bet_text = font.render("Wette: " + (bet_value if bet_value != "" else "0"), True, (255,255,255))
         screen.blit(bet_text, (input_rect_bet.x+5, input_rect_bet.y+5))
         
-        # Zeichne den Zurück-Button
         draw_button_wrapper("Zurück", back_button_rect)
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
-            # Eingabe im Wetteinsatzfeld
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if input_rect_bet.collidepoint(event.pos):
                     active_field = "bet"
                 else:
                     active_field = None
-                # Prüfe, ob ein Fight-Button geklickt wurde
+                # Prüfe, ob ein Fight-Button gedrückt wurde
                 for button, g in fight_buttons:
                     if button.handle_event(event):
                         try:
@@ -481,6 +477,10 @@ def main():
     main_menu(user_id, username, currency)
 
 def main_menu(user_id, username, currency):
+    """
+    Hauptmenü: Beim Betreten wird der aktuelle Guthabenstand einmalig abgefragt.
+    Danach werden keine kontinuierlichen Updates durchgeführt.
+    """
     currency = get_currency(user_id)
     
     clock = pygame.time.Clock()
