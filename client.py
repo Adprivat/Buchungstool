@@ -10,13 +10,11 @@ from utils import toggle_music, send_request, draw_button
 from registration_screen import show_registration_screen
 from animated_background import AnimatedBackground
 
-# Initialisierung von Pygame und Einrichtung des Fensters
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Gladiator")
 font = pygame.font.SysFont(None, 36)
 
-# Initialisierung der Musik
 pygame.mixer.init()
 music_on = False
 try:
@@ -55,9 +53,10 @@ def get_currency(user_id):
 
 def gladiator_screen(user_id, currency):
     """
-    Zeigt die Gladiatorverwaltung an. In jedem Schleifendurchlauf wird die
-    Gladiatorenliste aktuell vom Server abgefragt, sodass immer der in der
-    Datenbank gespeicherte Stand angezeigt wird.
+    Zeigt die Gladiator-Verwaltung an.
+    Beim Betreten wird einmalig die aktuelle Gladiatorenliste vom Server abgefragt.
+    Während der Anzeige wird diese Liste nicht kontinuierlich aktualisiert.
+    Wird eine Aktion ausgeführt (z. B. Rekrutieren), wird die Liste danach manuell erneuert.
     Gibt ggf. ein aktualisiertes Guthaben zurück.
     """
     clock = pygame.time.Clock()
@@ -95,16 +94,18 @@ def gladiator_screen(user_id, currency):
     button_rect_back = pygame.Rect(50, y + button_height + 80, 200, 50)
     selected_type = None
 
+    # Einmaliger Abruf der Gladiatorenliste beim Betreten
     def fetch_gladiators():
         req = {'command': 'get_gladiators', 'user_id': user_id}
         response = send_request(req)
         if response and response.get('status') == 'success':
             return response.get('gladiators', [])
         return []
+    
+    gladiators = fetch_gladiators()  # einmaliger Abruf beim Aufrufen des Menüs
 
     while True:
-        gladiators = fetch_gladiators()
-        
+        # Hier verwenden wir die einmal beim Eintritt abgerufene Liste
         background.update()
         background.draw(screen)
         
@@ -166,13 +167,15 @@ def gladiator_screen(user_id, currency):
                         }
                         response = send_request(req)
                         if response and response.get('status') == 'success':
-                            # Beim Rekrutieren wird der neue Guthabenstand zurückgegeben
+                            # Nach erfolgreicher Rekrutierung aktualisieren wir den Guthabenstand
                             currency = response.get('currency', currency)
+                            # Optional: Hier könnte man auch die Liste der Gladiatoren neu abrufen,
+                            # falls man den frisch rekrutierten Gladiator direkt sehen will.
+                            gladiators = fetch_gladiators()
                             new_name = ""
                         else:
                             print("Fehler beim Rekrutieren:", response.get('message') if response else "Keine Antwort vom Server")
                 elif button_rect_back.collidepoint(mouse_pos):
-                    # Vor Rückkehr aktuellen Kontostand abfragen
                     currency = get_currency(user_id)
                     return currency
             if event.type == pygame.KEYDOWN:
@@ -190,6 +193,7 @@ def gladiator_screen(user_id, currency):
                             response = send_request(req)
                             if response and response.get('status') == 'success':
                                 currency = response.get('currency', currency)
+                                gladiators = fetch_gladiators()
                                 new_name = ""
                             else:
                                 print("Fehler beim Rekrutieren:", response.get('message') if response else "Keine Antwort vom Server")
@@ -212,6 +216,7 @@ def fight_setup_screen(user_id):
         frame_delay=100
     )
     
+    # Einmaliger Abruf der Gladiatorenliste beim Betreten
     response = send_request({'command': 'get_gladiators', 'user_id': user_id})
     if response and response.get('status') == 'success':
         gladiators = response['gladiators']
@@ -254,11 +259,10 @@ def fight_setup_screen(user_id):
 
 def main_menu(user_id, username, currency):
     """
-    Zeigt das Hauptmenü an. Beim Betreten des Hauptmenüs wird der aktuelle
-    Guthabenstand (currency) aus der Datenbank abgefragt – so wird immer der
-    in der DB gespeicherte Wert angezeigt.
+    Zeigt das Hauptmenü an.
+    Beim Betreten wird der aktuelle Guthabenstand einmalig aus der Datenbank abgefragt.
+    Danach werden die angezeigten Daten im Menü nicht kontinuierlich aktualisiert.
     """
-    # Beim Start des Hauptmenüs den aktuellen Wert abfragen:
     currency = get_currency(user_id)
     
     clock = pygame.time.Clock()
@@ -306,7 +310,6 @@ def main_menu(user_id, username, currency):
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
             if gladiator_button.handle_event(event):
-                # Nach Verlassen des Gladiator-Menüs erneut den aktuellen Stand abrufen
                 currency = gladiator_screen(user_id, currency)
                 currency = get_currency(user_id)
             elif fight_button.handle_event(event):
@@ -319,9 +322,6 @@ def main_menu(user_id, username, currency):
         clock.tick(30)
 
 def join_fight(user_id, gladiator_id):
-    """
-    Tritt einem Kampf bei oder erstellt einen neuen.
-    """
     print(f"Versuche Kampf beizutreten mit Gladiator ID: {gladiator_id}")
     response = send_request({
         'command': 'join_fight',
@@ -345,9 +345,6 @@ def join_fight(user_id, gladiator_id):
         print("Keine Antwort vom Server erhalten")
 
 def show_waiting_screen(gladiator):
-    """
-    Zeigt den Wartebildschirm während der Suche nach einem Gegner.
-    """
     clock = pygame.time.Clock()
     background = AnimatedBackground(
         'assets/Kampf_Background',
@@ -357,7 +354,7 @@ def show_waiting_screen(gladiator):
         frame_delay=100
     )
     last_check = pygame.time.get_ticks()
-    check_interval = 1000  # Eine Sekunde
+    check_interval = 1000
     animation_dots = 0
     dot_update = pygame.time.get_ticks()
     
@@ -441,9 +438,6 @@ def show_waiting_screen(gladiator):
         clock.tick(30)
 
 def show_fight_result(result):
-    """
-    Zeigt das Ergebnis eines Kampfes an.
-    """
     print("Zeige Kampfergebnis:", result)
     clock = pygame.time.Clock()
     scroll_offset = 0
@@ -527,15 +521,14 @@ def show_fight_result(result):
         clock.tick(30)
 
 def main():
-    """Hauptfunktion des Spiels."""
-    user_id, username, currency = login_screen()  # Login liefert (user_id, username, currency)
+    user_id, username, currency = login_screen()
     main_menu(user_id, username, currency)
 
 def main_menu(user_id, username, currency):
     """
-    Zeigt das Hauptmenü an. Beim Betreten wird der aktuelle Guthabenstand aus der DB abgefragt.
+    Zeigt das Hauptmenü an. Beim Aufrufen wird der aktuelle Guthabenstand aus der Datenbank einmalig abgefragt.
+    Danach werden die Daten nicht mehr kontinuierlich aktualisiert.
     """
-    # Aktualisiere den Kontostand beim Aufrufen des Hauptmenüs
     currency = get_currency(user_id)
     
     clock = pygame.time.Clock()
@@ -583,7 +576,6 @@ def main_menu(user_id, username, currency):
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
             if gladiator_button.handle_event(event):
-                # Nach Verlassen des Gladiatorenmenüs wird erneut der aktuelle Stand abgefragt
                 currency = gladiator_screen(user_id, currency)
                 currency = get_currency(user_id)
             elif fight_button.handle_event(event):
