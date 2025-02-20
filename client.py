@@ -214,8 +214,8 @@ def fight_setup_screen(user_id):
         gladiators = []
         fight_buttons = []
     
-    # Eingabefeld für den Wetteinsatz (z.B. oben links)
-    input_rect_bet = pygame.Rect(50, 10, 100, 30)
+    # Eingabefeld für den Wetteinsatz (unten mittig)
+    input_rect_bet = pygame.Rect(300, screen.get_height() - 100, 200, 40)
     bet_value = ""
     active_field = None
     back_button_rect = pygame.Rect(50, screen.get_height()-50, 100, 30)
@@ -226,8 +226,8 @@ def fight_setup_screen(user_id):
         
         # Zeichne die Gladiatoren mit Fight-Buttons
         if response and response.get('status') == 'success':
-            for button, g in fight_buttons:
-                y_pos = 50 + (fight_buttons.index((button, g)) * 70)
+            for i, (button, g) in enumerate(fight_buttons):
+                y_pos = 50 + (i * 70)
                 text = font.render(
                     f"{g['name']} ({g['gladiator_type']}) | LP: {g['lebenspunkte']}, A: {g['angriff']}, V: {g['verteidigung']}, E: {g['ausdauer']}",
                     True, (255, 255, 255)
@@ -237,8 +237,9 @@ def fight_setup_screen(user_id):
         
         # Zeichne das Eingabefeld für den Wetteinsatz
         pygame.draw.rect(screen, (255, 255, 255), input_rect_bet, 2)
-        bet_text = font.render("Wette: " + (bet_value if bet_value != "" else "0"), True, (255,255,255))
-        screen.blit(bet_text, (input_rect_bet.x+5, input_rect_bet.y+5))
+        bet_text = font.render("Wette: " + (bet_value if bet_value != "" else "0"), True, (255, 215, 0))
+        bet_rect = bet_text.get_rect(center=(input_rect_bet.centerx, input_rect_bet.centery))
+        screen.blit(bet_text, bet_rect)
         
         draw_button_wrapper("Zurück", back_button_rect)
         
@@ -246,21 +247,25 @@ def fight_setup_screen(user_id):
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if input_rect_bet.collidepoint(event.pos):
+                mouse_pos = event.pos
+                if input_rect_bet.collidepoint(mouse_pos):
                     active_field = "bet"
                 else:
                     active_field = None
+                    
                 # Prüfe, ob ein Fight-Button gedrückt wurde
                 for button, g in fight_buttons:
-                    if button.handle_event(event):
+                    if button.rect.collidepoint(mouse_pos):  # Direkte Kollisionsprüfung
                         try:
                             bet_int = int(bet_value) if bet_value != "" else 0
                         except:
                             bet_int = 0
                         join_fight(user_id, g['id'], bet_int)
                         return
-                if back_button_rect.collidepoint(event.pos):
+                        
+                if back_button_rect.collidepoint(mouse_pos):
                     return
+                    
             if event.type == pygame.KEYDOWN:
                 if active_field == "bet":
                     if event.key == pygame.K_BACKSPACE:
@@ -270,6 +275,7 @@ def fight_setup_screen(user_id):
                     else:
                         if event.unicode.isdigit():
                             bet_value += event.unicode
+        
         pygame.display.flip()
         clock.tick(30)
 

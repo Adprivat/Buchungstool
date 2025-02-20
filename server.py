@@ -367,9 +367,14 @@ def simulate_fight(player1, player2):
         loser = player1.copy()
         loser.update({'lebenspunkte': p1_current['lebenspunkte'], 'ausdauer': p1_current['ausdauer']})
     
-    # Gesamtpot berechnen: 50+50 Eintritt plus beide Wetteinsätze
-    pot = 50 + 50 + player1.get('bet', 0) + player2.get('bet', 0)
-    cursor.execute("UPDATE users SET currency = currency + %s WHERE id = %s", (pot, winner['user_id']))
+    # Berechne den Gewinn:
+    # 1. Eintrittsgebühren (50 + 50 = 100)
+    # 2. Eigener Wetteinsatz zurück
+    # 3. Eigener Wetteinsatz nochmal als Prämie
+    winner_bet = winner.get('bet', 0)
+    total_win = 100 + winner_bet + winner_bet  # Eintrittsgebühren + Wetteinsatz + Prämie
+    
+    cursor.execute("UPDATE users SET currency = currency + %s WHERE id = %s", (total_win, winner['user_id']))
     db.commit()
     
     return {
