@@ -410,11 +410,7 @@ def show_waiting_screen(gladiator):
                     try:
                         response = send_request({'command': 'cancel_fight', 'gladiator_id': gladiator['gladiator_id']})
                         if response and response.get('status') == 'success':
-                            message = response.get('message', 'Kampf abgebrochen')
-                            message_timer = pygame.time.get_ticks()
-                        else:
-                            message = "Fehler beim Abbrechen des Kampfes"
-                            message_timer = pygame.time.get_ticks()
+                            return  # Direkt zurück zum vorherigen Bildschirm
                     except Exception as e:
                         print("Fehler beim Abbrechen des Kampfes:", e)
                         return
