@@ -61,14 +61,33 @@ def show_registration_screen(screen, font):
         screen.blit(title, (320,100))
         
         # Zeichne Eingabefelder
-        pygame.draw.rect(screen, (255,255,255), input_rect_username, 2)
-        pygame.draw.rect(screen, (255,255,255), input_rect_password, 2)
+        # Unterschiedliche Farben für aktive/inaktive Felder
+        username_color = (255, 255, 0) if active_field == "username" else (255, 255, 255)
+        password_color = (255, 255, 0) if active_field == "password" else (255, 255, 255)
+        pygame.draw.rect(screen, username_color, input_rect_username, 2)
+        pygame.draw.rect(screen, password_color, input_rect_password, 2)
         
         # Rendere Benutzereingaben
         user_text = font.render(username, True, (255,255,255))
         pass_text = font.render("*"*len(password), True, (255,255,255))  # Passwort als Sternchen
         screen.blit(user_text, (input_rect_username.x+5, input_rect_username.y+5))
         screen.blit(pass_text, (input_rect_password.x+5, input_rect_password.y+5))
+        
+        # Zeichne den blinkenden Cursor im aktiven Feld
+        if active_field == "username":
+            cursor_x = input_rect_username.x + 5 + user_text.get_width()
+            cursor_y = input_rect_username.y + 5
+            if (pygame.time.get_ticks() // 500) % 2:  # Blinken alle 500ms
+                pygame.draw.line(screen, (255, 255, 255),
+                               (cursor_x, cursor_y),
+                               (cursor_x, cursor_y + user_text.get_height()))
+        elif active_field == "password":
+            cursor_x = input_rect_password.x + 5 + pass_text.get_width()
+            cursor_y = input_rect_password.y + 5
+            if (pygame.time.get_ticks() // 500) % 2:  # Blinken alle 500ms
+                pygame.draw.line(screen, (255, 255, 255),
+                               (cursor_x, cursor_y),
+                               (cursor_x, cursor_y + pass_text.get_height()))
         
         # Zeichne Buttons
         draw_button(screen, font, "Registrieren", button_rect_register)
