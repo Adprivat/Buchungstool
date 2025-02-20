@@ -13,7 +13,7 @@ import os
 # Initialisierung von Pygame und Einstellung des Fensters
 pygame.init()
 screen = pygame.display.set_mode((800, 600))  # Erstelle ein 800x600 Pixel großes Fenster
-pygame.display.set_caption("Gladiatoren Spiel")  # Setze den Fenstertitel
+pygame.display.set_caption("Gladiator")  # Setze den Fenstertitel
 font = pygame.font.SysFont(None, 36)  # Lade die Standard-Schriftart in Größe 36
 
 # Initialisierung der Musik
@@ -100,6 +100,11 @@ def gladiator_screen(user_id):
         
         title = font.render("Deine Gladiatoren", True, (255,255,255))
         screen.blit(title, (300,20))
+        
+        # Zeige die Kosten für einen neuen Gladiator an
+        cost_text = font.render("Kosten für einen neuen Gladiator: 100 Gold", True, (255,215,0))  # Gold-Farbe
+        screen.blit(cost_text, (50,300))
+        
         y_offset = 60
         if not gladiators:
             no_text = font.render("Keine Gladiatoren gefunden.", True, (200,200,200))
@@ -124,7 +129,7 @@ def gladiator_screen(user_id):
         pygame.draw.rect(screen, (255,255,255), input_rect_newname, 2)
         new_text = font.render(new_name, True, (255,255,255))
         screen.blit(new_text, (input_rect_newname.x+5, input_rect_newname.y+5))
-        draw_button_wrapper("Rekrutieren", button_rect_recruit)
+        draw_button_wrapper("Rekrutieren (100 Gold)", button_rect_recruit)
         draw_button_wrapper("Zurück", button_rect_back)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

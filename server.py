@@ -26,7 +26,7 @@ def setup_database():
             currency INT DEFAULT 1000
         )
     ''')
-    # Tabelle für Gladiatoren erstellen – verwende "gladiator_type" statt "type"
+    # Tabelle für Gladiatoren erstellen
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS gladiators (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -142,6 +142,12 @@ def recruit_gladiator(request):
     if chosen_type not in gladiator_types.gladiator_types:
         return {'status': 'error', 'message': 'Ungültiger Gladiator-Typ'}
     
+    # Prüfe, ob der Spieler genug Gold hat
+    cursor.execute("SELECT currency FROM users WHERE id = %s", (user_id,))
+    result = cursor.fetchone()
+    if not result or result[0] < 100:
+        return {'status': 'error', 'message': 'Nicht genug Gold! Ein Gladiator kostet 100 Gold.'}
+    
     g_type = gladiator_types.gladiator_types[chosen_type]
     final_stats = BASE_STATS.copy()
     
@@ -150,6 +156,9 @@ def recruit_gladiator(request):
         if stat in final_stats:
             final_stats[stat] += mod
 
+    # Ziehe die Kosten ab
+    cursor.execute("UPDATE users SET currency = currency - 100 WHERE id = %s", (user_id,))
+    
     cursor.execute('''
         INSERT INTO gladiators (user_id, name, gladiator_type, lebenspunkte, angriff, verteidigung, ausdauer)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -166,7 +175,7 @@ def recruit_gladiator(request):
     
     return {
         'status': 'success',
-        'message': f'Gladiator {name} ({chosen_type}) wurde rekrutiert',
+        'message': f'Gladiator {name} ({chosen_type}) wurde für 100 Gold rekrutiert',
         'gladiator': {
             'name': name,
             'gladiator_type': chosen_type,
