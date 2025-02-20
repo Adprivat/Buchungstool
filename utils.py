@@ -13,24 +13,52 @@ load_dotenv()
 SERVER_IP = os.getenv('CLIENT_HOST', 'maglev.proxy.rlwy.net')
 SERVER_PORT = int(os.getenv('CLIENT_PORT', '44200'))
 
-music_on = True
+# Musik-Steuerung
+music_on = False  # Startzustand: Musik ist aus
 
-pygame.mixer.init()
-try:
-    pygame.mixer.music.load("music/mygladiator.mp3")
-    pygame.mixer.music.set_volume(0.3)
-    pygame.mixer.music.play(-1)
-except Exception as e:
-    print("Fehler beim Laden der Hintergrundmusik:", e)
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    
+    return os.path.join(base_path, relative_path)
+
+def init_music():
+    """Initialisiert die Musik beim Programmstart, startet sie aber nicht automatisch."""
+    global music_on
+    try:
+        pygame.mixer.music.load(resource_path("music/mygladiator.mp3"))
+        pygame.mixer.music.set_volume(0.3)
+        # Musik wird geladen, aber NICHT abgespielt – Musik bleibt aus
+        music_on = False
+    except Exception as e:
+        print("Fehler beim Laden der Musik:", e)
+        music_on = False
+
 
 def toggle_music():
+    """Schaltet die Musik ein/aus"""
     global music_on
-    if music_on:
-        pygame.mixer.music.stop()
+    try:
+        if music_on:
+            pygame.mixer.music.pause()
+            music_on = False
+        else:
+            # Wenn die Musik noch nicht geladen wurde, lade sie
+            try:
+                pygame.mixer.music.load(resource_path("music/mygladiator.mp3"))
+                pygame.mixer.music.set_volume(0.3)
+                pygame.mixer.music.play(-1)
+            except:
+                pass
+            pygame.mixer.music.unpause()
+            music_on = True
+    except Exception as e:
+        print("Fehler beim Umschalten der Musik:", e)
         music_on = False
-    else:
-        pygame.mixer.music.play(-1)
-        music_on = True
 
 def send_request(request, max_retries=3):
     """Sendet eine Anfrage an den Server mit Wiederholungsversuchen bei Verbindungsfehlern."""

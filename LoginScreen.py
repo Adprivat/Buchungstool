@@ -2,7 +2,7 @@ import pygame
 import os
 import sys
 from buttons import ImageButton, MusicButton, RegisterButton
-from utils import toggle_music, send_request, draw_button
+from utils import toggle_music, send_request, draw_button, resource_path
 from registration_screen import show_registration_screen
 from animated_background import AnimatedBackground
 
@@ -15,14 +15,14 @@ class LoginScreen:
         self.active_field = "username"
         self.input_rect_username = pygame.Rect(300, 250, 200, 40)
         self.input_rect_password = pygame.Rect(300, 320, 200, 40)
-        self.login_button = ImageButton("assets/buttons/login.png", pos=(290, 400), frame_size=(96, 96), pressed_offset=(0, 96))
-        self.register_button = RegisterButton(pos=(410, 400))
+        self.login_button = ImageButton(resource_path("assets/buttons/login.png"), pos=(290, 400), frame_size=(96, 96), pressed_offset=(0, 96))
+        self.register_button = RegisterButton(pos=(420, 400))
         self.music_button = MusicButton(pos=(690, 10))
         self.clock = pygame.time.Clock()
         
         # Initialisiere animierten Hintergrund
         self.background = AnimatedBackground(
-            'assets/LoginBackground',
+            resource_path('assets/LoginBackground'),
             'ezgif-frame-{:03d}.png',
             28,
             target_size=(800, 600),
@@ -32,7 +32,7 @@ class LoginScreen:
         # Lade die Titelbilder
         self.title_frames = []
         for i in range(8):
-            frame = pygame.image.load(os.path.join('assets/titel', f'sprite_{i}.png')).convert_alpha()
+            frame = pygame.image.load(resource_path(os.path.join('assets/titel_Hauptmenu', f'sprite_{i}.png'))).convert_alpha()
             self.title_frames.append(frame)
         self.current_title_frame = 0
         self.title_frame_delay = 150
@@ -76,30 +76,16 @@ class LoginScreen:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-        if self.login_button.handle_event(event):
-            req = {'command': 'login', 'username': self.username, 'password': self.password}
-            response = send_request(req)
-            if response and response.get('status') == 'success':
-                return response['user_id'], self.username, response['currency']
-            else:
-                print("Login fehlgeschlagen:", response.get('message') if response else "Keine Antwort")
-                self.username = ""
-                self.password = ""
-                self.active_field = "username"
-        if self.register_button.handle_event(event):
-            show_registration_screen(self.screen, self.font)
-            self.username = ""
-            self.password = ""
-            self.active_field = "username"
-        if self.music_button.handle_event(event):
-            toggle_music()
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
             if self.input_rect_username.collidepoint(mouse_pos):
                 self.active_field = "username"
             elif self.input_rect_password.collidepoint(mouse_pos):
                 self.active_field = "password"
-        if event.type == pygame.KEYDOWN:
+            elif self.music_button.rect.collidepoint(mouse_pos):
+                toggle_music()
+                return None
+        elif event.type == pygame.KEYDOWN:
             if self.active_field == "username":
                 if event.key == pygame.K_BACKSPACE:
                     self.username = self.username[:-1]
@@ -114,4 +100,22 @@ class LoginScreen:
                     self.active_field = "username"
                 else:
                     self.password += event.unicode
+        
+        # Handle die anderen Buttons
+        if self.login_button.handle_event(event):
+            req = {'command': 'login', 'username': self.username, 'password': self.password}
+            response = send_request(req)
+            if response and response.get('status') == 'success':
+                return response['user_id'], self.username, response['currency']
+            else:
+                print("Login fehlgeschlagen:", response.get('message') if response else "Keine Antwort")
+                self.username = ""
+                self.password = ""
+                self.active_field = "username"
+        elif self.register_button.handle_event(event):
+            show_registration_screen(self.screen, self.font)
+            self.username = ""
+            self.password = ""
+            self.active_field = "username"
+        
         return None
