@@ -71,6 +71,27 @@ class BookingCheckResponse(BaseModel):
     available_rooms: int
     price_per_night: float
 
+# Zusätzliche Pydantic-Modelle für Anfragen und Antworten
+class BookingCreate(BaseModel):
+    hotel_id: str
+    room_id: Optional[int] = None
+    check_in: str
+    check_out: str
+    adults: int
+    children: int
+    rooms: int
+    
+class BookingResponse(BaseModel):
+    id: int
+    check_in: str
+    check_out: str
+    room_name: str
+    total_price: float
+    status: str
+    
+    class Config:
+        orm_mode = True
+
 # Authentifizierungsfunktionen
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -149,14 +170,110 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/api/hotels")
+def get_hotels():
+    return [
+        {"id": "berlin", "name": "Harmony Heaven Berlin", "location": "Berlin"},
+        {"id": "munich", "name": "Harmony Heaven München", "location": "München"},
+        {"id": "hamburg", "name": "Harmony Heaven Hamburg", "location": "Hamburg"},
+        {"id": "frankfurt", "name": "Harmony Heaven Frankfurt", "location": "Frankfurt"},
+    ]
+
 @app.post("/api/bookings/check", response_model=BookingCheckResponse)
-def check_availability(booking: BookingCheck, current_user: models.User = Depends(get_current_user)):
-    # Hier würde die tatsächliche Verfügbarkeitsprüfung in der Datenbank erfolgen
-    # Für dieses Beispiel geben wir einfach eine Dummy-Antwort zurück
-    return {
-        "available_rooms": 5,
-        "price_per_night": 199.00
-    }
+def check_availability(booking: BookingCheck, db: Session = Depends(get_db)):
+    try:
+        # Datumsformatierung
+        check_in_date = datetime.strptime(booking.check_in, "%Y-%m-%d").date()
+        check_out_date = datetime.strptime(booking.check_out, "%Y-%m-%d").date()
+        
+        # Prüfen, ob Check-in vor Check-out liegt
+        if check_in_date >= check_out_date:
+            raise HTTPException(
+                status_code=400, 
+                detail="Check-out muss nach Check-in liegen"
+            )
+            
+        # Zimmer abfragen, die in diesem Zeitraum bereits gebucht sind
+        booked_rooms = db.query(models.Room.id).join(models.Booking).filter(
+            models.Booking.check_in < check_out_date,
+            models.Booking.check_out > check_in_date
+        ).all()
+        
+        # IDs der gebuchten Zimmer extrahieren
+        booked_room_ids = [room[0] for room in booked_rooms]
+        
+        # Verfügbare Zimmer abfragen
+        available_rooms = db.query(models.Room).filter(
+            models.Room.id.notin_(booked_room_ids),
+            models.Room.capacity >= booking.adults + booking.children
+        ).all()
+        
+        # Anzahl der verfügbaren Zimmer und durchschnittlicher Preis
+        num_available = len(available_rooms)
+        avg_price = sum(room.price_per_night for room in available_rooms) / num_available if num_available > 0 else 0
+        
+        return {
+            "available_rooms": num_available,
+            "price_per_night": round(avg_price, 2)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fehler bei der Verfügbarkeitsprüfung: {str(e)}"
+        )
+
+@app.post("/api/bookings", response_model=BookingResponse)
+def create_booking(booking: BookingCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        # Datumsformatierung
+        check_in_date = datetime.strptime(booking.check_in, "%Y-%m-%d").date()
+        check_out_date = datetime.strptime(booking.check_out, "%Y-%m-%d").date()
+        
+        # Verfügbares Zimmer finden
+        available_room = db.query(models.Room).filter(
+            models.Room.id == booking.room_id
+        ).first()
+        
+        if not available_room:
+            raise HTTPException(
+                status_code=404,
+                detail="Das gewählte Zimmer ist nicht verfügbar"
+            )
+        
+        # Anzahl der Übernachtungen berechnen
+        nights = (check_out_date - check_in_date).days
+        total_price = available_room.price_per_night * nights
+        
+        # Buchung erstellen
+        new_booking = models.Booking(
+            user_id=current_user.id,
+            room_id=available_room.id,
+            check_in=check_in_date,
+            check_out=check_out_date,
+            adults=booking.adults,
+            children=booking.children,
+            total_price=total_price,
+            status="confirmed"
+        )
+        
+        db.add(new_booking)
+        db.commit()
+        db.refresh(new_booking)
+        
+        return {
+            "id": new_booking.id,
+            "check_in": booking.check_in,
+            "check_out": booking.check_out,
+            "room_name": available_room.name,
+            "total_price": total_price,
+            "status": "confirmed"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fehler bei der Buchungserstellung: {str(e)}"
+        )
 
 # Server starten mit: uvicorn main:app --reload
 

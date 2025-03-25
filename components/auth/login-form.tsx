@@ -24,45 +24,72 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setIsLoading(true)
 
     try {
-      // API-Anfrage an den Python-Backend-Server
-      const response = await fetch("http://localhost:8000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: "include", // Wichtig für Cookies
-      })
+      // Formular-Daten für die OAuth2-Anforderung vorbereiten
+      const formData = new FormData();
+      formData.append("username", email); // Backend erwartet 'username' statt 'email'
+      formData.append("password", password);
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Anmeldung fehlgeschlagen")
+      // Verschiedene API-Endpunkt-URLs ausprobieren
+      const apiUrls = [
+        "http://localhost:8000/api/auth/login",
+        "http://127.0.0.1:8000/api/auth/login"
+      ];
+      
+      let response = null;
+      let error = null;
+      
+      // Versuchen Sie jeden API-Endpunkt
+      for (const url of apiUrls) {
+        try {
+          console.log(`Trying to connect to: ${url}`);
+          response = await fetch(url, {
+            method: "POST",
+            body: formData,
+            credentials: "include", // Wichtig für Cookies
+          });
+          
+          if (response.ok) {
+            console.log(`Successfully connected to: ${url}`);
+            break; // Bei erfolgreicher Verbindung abbrechen
+          }
+        } catch (e) {
+          console.error(`Error connecting to ${url}:`, e);
+          error = e;
+        }
       }
+      
+      if (!response || !response.ok) {
+        throw error || new Error("Verbindung zum Server nicht möglich");
+      }
+
+      const data = await response.json();
 
       // Erfolgreiche Anmeldung
       toast({
         title: "Erfolgreich angemeldet",
         description: "Willkommen zurück bei Harmony Heaven Hotels",
-      })
+      });
 
-      // Token im localStorage speichern (optional, je nach Sicherheitsanforderungen)
+      // Token im localStorage speichern
       if (data.access_token) {
-        localStorage.setItem("token", data.access_token)
+        localStorage.setItem("token", data.access_token);
       }
 
-      onSuccess()
+      // Callback für erfolgreiche Anmeldung aufrufen
+      onSuccess();
     } catch (error) {
-      console.error("Login error:", error)
+      console.error("Login error:", error);
       toast({
         title: "Fehler bei der Anmeldung",
-        description: error instanceof Error ? error.message : "Bitte überprüfen Sie Ihre Anmeldedaten",
+        description: error instanceof Error 
+          ? error.message 
+          : "Verbindung zum Server fehlgeschlagen. Bitte stellen Sie sicher, dass der Server läuft.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 py-2">

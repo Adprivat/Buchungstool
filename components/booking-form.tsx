@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Users, MapPin } from "lucide-react"
+import { CalendarIcon, Users, MapPin, Check, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Einfache Datumsformatierungsfunktion ohne externe Bibliothek
 function formatDate(date: Date | undefined): string {
@@ -35,15 +37,29 @@ function formatDate(date: Date | undefined): string {
   return `${day}. ${month} ${year}`
 }
 
-// Beispiel-Hotels
-const hotels = [
-  { id: "berlin", name: "Harmony Heaven Berlin", location: "Berlin" },
-  { id: "munich", name: "Harmony Heaven München", location: "München" },
-  { id: "hamburg", name: "Harmony Heaven Hamburg", location: "Hamburg" },
-  { id: "frankfurt", name: "Harmony Heaven Frankfurt", location: "Frankfurt" },
-]
+interface Hotel {
+  id: string
+  name: string
+  location: string
+}
+
+interface Room {
+  id: number
+  name: string
+  description: string
+  price_per_night: number
+  capacity: number
+  room_type: string
+  image_url: string
+}
+
+interface AvailabilityResponse {
+  available_rooms: number
+  price_per_night: number
+}
 
 export function BookingForm() {
+  const [hotels, setHotels] = useState<Hotel[]>([])
   const [selectedHotel, setSelectedHotel] = useState<string>("")
   const [checkIn, setCheckIn] = useState<Date>()
   const [checkOut, setCheckOut] = useState<Date>()
@@ -51,7 +67,57 @@ export function BookingForm() {
   const [children, setChildren] = useState(0)
   const [rooms, setRooms] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
+  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null)
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const { toast } = useToast()
+
+  // Hotels aus der API laden
+  useEffect(() => {
+    async function fetchHotels() {
+      try {
+        // API-Urls definieren, die wir versuchen
+        const apiUrls = [
+          "http://localhost:8000/api/hotels",
+          "http://127.0.0.1:8000/api/hotels"
+        ];
+        
+        let response = null;
+        let error = null;
+        
+        // Jeden API-Endpunkt versuchen
+        for (const url of apiUrls) {
+          try {
+            console.log(`Trying to fetch hotels from: ${url}`);
+            response = await fetch(url);
+            
+            if (response.ok) {
+              console.log(`Successfully connected to: ${url}`);
+              const data = await response.json();
+              setHotels(data);
+              return; // Bei erfolgreicher Verbindung abbrechen
+            }
+          } catch (e) {
+            console.error(`Error connecting to ${url}:`, e);
+            error = e;
+          }
+        }
+        
+        // Wenn keine Verbindung hergestellt werden konnte
+        throw error || new Error("Verbindung zum Server nicht möglich");
+      } catch (error) {
+        console.error("Fehler beim Laden der Hotels:", error)
+        toast({
+          title: "Fehler",
+          description: "Die Hotels konnten nicht geladen werden. Bitte stellen Sie sicher, dass der Server läuft.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    fetchHotels()
+  }, [toast])
 
   const handleSubmit = async () => {
     if (!selectedHotel) {
@@ -75,47 +141,154 @@ export function BookingForm() {
     setIsLoading(true)
 
     try {
-      // API-Anfrage an den Python-Backend-Server
-      const response = await fetch("http://localhost:8000/api/bookings/check", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`, // Falls der Nutzer angemeldet ist
-        },
-        body: JSON.stringify({
-          hotel_id: selectedHotel,
-          check_in: checkIn.toISOString().split("T")[0],
-          check_out: checkOut.toISOString().split("T")[0],
-          adults,
-          children,
-          rooms,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Verfügbarkeitsprüfung fehlgeschlagen")
+      // API-Urls definieren, die wir versuchen
+      const apiUrls = [
+        "http://localhost:8000/api/bookings/check",
+        "http://127.0.0.1:8000/api/bookings/check"
+      ];
+      
+      let response = null;
+      let error = null;
+      let data = null;
+      
+      // Jeden API-Endpunkt versuchen
+      for (const url of apiUrls) {
+        try {
+          console.log(`Trying to connect to: ${url}`);
+          response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              hotel_id: selectedHotel,
+              check_in: checkIn.toISOString().split("T")[0],
+              check_out: checkOut.toISOString().split("T")[0],
+              adults,
+              children,
+              rooms,
+            }),
+          });
+          
+          if (response.ok) {
+            console.log(`Successfully connected to: ${url}`);
+            data = await response.json();
+            break; // Bei erfolgreicher Verbindung abbrechen
+          }
+        } catch (e) {
+          console.error(`Error connecting to ${url}:`, e);
+          error = e;
+        }
+      }
+      
+      if (!response || !response.ok || !data) {
+        throw error || new Error("Verbindung zum Server nicht möglich");
       }
 
-      // Erfolgreiche Verfügbarkeitsprüfung
-      toast({
-        title: "Verfügbarkeit bestätigt",
-        description: `Wir haben ${data.available_rooms} verfügbare Zimmer für Ihren Aufenthalt gefunden.`,
-      })
-
-      // Hier könnten Sie zur Buchungsseite weiterleiten
-      // router.push('/booking/details')
+      // Verfügbarkeitsinformationen speichern und Modal anzeigen
+      setAvailability(data)
+      setShowAvailabilityModal(true)
     } catch (error) {
       console.error("Booking check error:", error)
+      setErrorMessage(
+        error instanceof Error 
+          ? error.message 
+          : "Verbindung zum Server fehlgeschlagen. Bitte stellen Sie sicher, dass der Server läuft."
+      )
+      setShowErrorModal(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleBooking = async () => {
+    if (!availability || !selectedHotel || !checkIn || !checkOut) return
+
+    try {
+      setIsLoading(true)
+
+      // API-Urls definieren, die wir versuchen
+      const apiUrls = [
+        "http://localhost:8000/api/bookings",
+        "http://127.0.0.1:8000/api/bookings"
+      ];
+      
+      let response = null;
+      let error = null;
+      
+      // Jeden API-Endpunkt versuchen
+      for (const url of apiUrls) {
+        try {
+          console.log(`Trying to connect to: ${url}`);
+          response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`, // Falls der Nutzer angemeldet ist
+            },
+            body: JSON.stringify({
+              hotel_id: selectedHotel,
+              check_in: checkIn.toISOString().split("T")[0],
+              check_out: checkOut.toISOString().split("T")[0],
+              adults,
+              children,
+              rooms,
+              // In einer vollständigen Implementierung würde hier eine room_id übergeben werden
+            }),
+          });
+          
+          if (response.ok) {
+            console.log(`Successfully connected to: ${url}`);
+            break; // Bei erfolgreicher Verbindung abbrechen
+          }
+        } catch (e) {
+          console.error(`Error connecting to ${url}:`, e);
+          error = e;
+        }
+      }
+
+      if (!response || !response.ok) {
+        const errorData = response ? await response.json() : null;
+        throw new Error(errorData?.detail || "Verbindung zum Server nicht möglich");
+      }
+
       toast({
-        title: "Fehler bei der Verfügbarkeitsprüfung",
-        description: error instanceof Error ? error.message : "Bitte versuchen Sie es später erneut",
+        title: "Buchung erfolgreich",
+        description: "Ihre Buchung wurde erfolgreich abgeschlossen.",
+      })
+      
+      // Formular zurücksetzen
+      setSelectedHotel("")
+      setCheckIn(undefined)
+      setCheckOut(undefined)
+      setAdults(2)
+      setChildren(0)
+      setRooms(1)
+    } catch (error) {
+      console.error("Booking error:", error)
+      toast({
+        title: "Buchung fehlgeschlagen",
+        description: error instanceof Error 
+          ? error.message 
+          : "Verbindung zum Server fehlgeschlagen. Bitte stellen Sie sicher, dass der Server läuft.",
         variant: "destructive",
       })
     } finally {
       setIsLoading(false)
+      setShowAvailabilityModal(false)
     }
+  }
+
+  // Berechnen der Anzahl der Übernachtungen
+  const calculateNights = () => {
+    if (!checkIn || !checkOut) return 0
+    return Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  // Berechnen des Gesamtpreises
+  const calculateTotalPrice = () => {
+    if (!availability) return 0
+    return availability.price_per_night * calculateNights() * rooms
   }
 
   return (
@@ -167,7 +340,13 @@ export function BookingForm() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={checkIn} onSelect={setCheckIn} initialFocus />
+                <Calendar 
+                  mode="single" 
+                  selected={checkIn} 
+                  onSelect={setCheckIn} 
+                  initialFocus 
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))} 
+                />
               </PopoverContent>
             </Popover>
           </div>
@@ -188,7 +367,7 @@ export function BookingForm() {
                   selected={checkOut}
                   onSelect={setCheckOut}
                   initialFocus
-                  disabled={(date) => (checkIn ? date < checkIn : false) || date < new Date()}
+                  disabled={(date) => (checkIn ? date <= checkIn : false) || date < new Date(new Date().setHours(0, 0, 0, 0))}
                 />
               </PopoverContent>
             </Popover>
@@ -293,6 +472,83 @@ export function BookingForm() {
           </div>
         </div>
       </div>
+
+      {/* Verfügbarkeits-Modal */}
+      <Dialog open={showAvailabilityModal} onOpenChange={setShowAvailabilityModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verfügbarkeit bestätigt</DialogTitle>
+            <DialogDescription>
+              Wir haben {availability?.available_rooms} verfügbare Zimmer für Ihren Aufenthalt gefunden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert>
+              <Check className="h-4 w-4" />
+              <AlertTitle>Verfügbare Zimmer</AlertTitle>
+              <AlertDescription>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span>Hotel:</span>
+                    <span className="font-semibold">{hotels.find((h) => h.id === selectedHotel)?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Check-in:</span>
+                    <span className="font-semibold">{formatDate(checkIn)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Check-out:</span>
+                    <span className="font-semibold">{formatDate(checkOut)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Anzahl der Nächte:</span>
+                    <span className="font-semibold">{calculateNights()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Preis pro Nacht:</span>
+                    <span className="font-semibold">{availability?.price_per_night.toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span>Gesamtpreis:</span>
+                    <span className="font-semibold">{calculateTotalPrice().toFixed(2)} €</span>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button variant="outline" onClick={() => setShowAvailabilityModal(false)}>
+              Abbrechen
+            </Button>
+            <Button type="button" onClick={handleBooking} disabled={isLoading}>
+              {isLoading ? "Wird gebucht..." : "Jetzt buchen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fehler-Modal */}
+      <Dialog open={showErrorModal} onOpenChange={setShowErrorModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fehler bei der Verfügbarkeitsprüfung</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Fehler</AlertTitle>
+              <AlertDescription>
+                {errorMessage}
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={() => setShowErrorModal(false)}>
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
