@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 215 60% 12%;
+    --foreground: 48 100% 96%;
+
+    --card: 215 50% 15%;
+    --card-foreground: 48 100% 96%;
+
+    --popover: 215 50% 15%;
+    --popover-foreground: 48 100% 96%;
+
+    --primary: 36 60% 80%;
+    --primary-foreground: 215 60% 12%;
+
+    --secondary: 215 40% 20%;
+    --secondary-foreground: 48 100% 96%;
+
+    --muted: 215 40% 20%;
+    --muted-foreground: 36 30% 80%;
+
+    --accent: 36 60% 80%;
+    --accent-foreground: 215 60% 12%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 48 100% 96%;
+
+    --border: 215 30% 25%;
+    --input: 215 30% 25%;
+    --ring: 36 60% 80%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 215 60% 12%;
+    --foreground: 48 100% 96%;
+
+    --card: 215 50% 15%;
+    --card-foreground: 48 100% 96%;
+
+    --popover: 215 50% 15%;
+    --popover-foreground: 48 100% 96%;
+
+    --primary: 36 60% 80%;
+    --primary-foreground: 215 60% 12%;
+
+    --secondary: 215 40% 20%;
+    --secondary-foreground: 48 100% 96%;
+
+    --muted: 215 40% 20%;
+    --muted-foreground: 36 30% 80%;
+
+    --accent: 36 60% 80%;
+    --accent-foreground: 215 60% 12%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 48 100% 96%;
+
+    --border: 215 30% 25%;
+    --input: 215 30% 25%;
+    --ring: 36 60% 80%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Anpassung für den Header mit transparentem Hintergrund */
+header {
+  background: linear-gradient(to bottom, rgba(13, 31, 61, 0.95), rgba(13, 31, 61, 0.85));
+}
+
+header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  backdrop-filter: blur(8px);
+  z-index: -1;
+}
+
+/* Logo-Schriftart für Überschriften */
+.font-logo {
+  font-family: var(--font-cinzel);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Hero-Bereich Anpassungen */
+.hero-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: linear-gradient(to top, hsl(var(--background)), transparent);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.hero-image {
+  transform: scale(1.02);
+  transition: transform 8s ease-out;
+}
+
+.hero-section:hover .hero-image {
+  transform: scale(1);
+}
+
