@@ -1,3 +1,0 @@
-pygame
-mysql-connector-python
-python-dotenv
